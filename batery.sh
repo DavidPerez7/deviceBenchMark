@@ -6,7 +6,7 @@ read numValores
 
 declare -a consumos
 for ((i=1; i<=numValores; i++)); do
-    consumoMAH=$(cat /sys/class/power_supply/battery/current_now)
+    consumoMAH=$(su -c "cat /sys/class/power_supply/battery/current_now")
     echo "consumo en mAh: $consumoMAH"
     consumos+=("$consumoMAH")
 done
