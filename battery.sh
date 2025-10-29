@@ -1,11 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-declare numValores=0
-echo "Digite el numero de valores a promediar: "
-read numValores
+declare numConsultas=0
+echo "Digite el numero de consultas: "
+read numConsultas
 
 declare -a consumos
-for ((i=1; i<=numValores; i++)); do
+for ((i=1; i<=numConsultas; i++)); do
     consumoMAH=$(su -c "cat /sys/class/power_supply/battery/current_now")
     echo "consumo en mAh: $consumoMAH"
     consumos+=("$consumoMAH")
