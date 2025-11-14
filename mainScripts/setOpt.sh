@@ -16,21 +16,21 @@ read opcion
 if [ "$opcion" -eq 1 ]; then
     #apgado de nucleos
     for cpu in 2 3 6 7; do
-    tsu -c "sh -c 'echo 0 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo 0 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
     # cluster 1 (freq y governor)
     for cpu in 0 1; do
-    tsu -c "sh -c 'echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor'"
-    tsu -c "sh -c 'echo 1363000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq'"
-    tsu -c "sh -c 'echo 1 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo powersave | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+    echo 1363000 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+    echo 1 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: powersave, 1363MHz, online"
     done
     # cluster 2 (freq y governor)
     for cpu in 4 5; do
-    tsu -c "sh -c 'echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor'"
-    tsu -c "sh -c 'echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq'"
-    tsu -c "sh -c 'echo 1 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo powersave | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+    echo 1094000 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+    echo 1 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: powersave, 1094MHz, online"
     done
 
@@ -38,21 +38,21 @@ if [ "$opcion" -eq 1 ]; then
 elif [ "$opcion" -eq 2 ]; then
     # apago de núcleos
     for cpu in 3 7; do
-    tsu -c "sh -c 'echo 0 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo 0 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
     # cluster 1 (freq y governor)
     for cpu in 0 1 2; do
-    tsu -c "sh -c 'echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor'"
-    tsu -c "sh -c 'echo 1536000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq'"
-    tsu -c "sh -c 'echo 1 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo powersave | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+    echo 1536000 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+    echo 1 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: powersave, 1536MHz, online"
     done
     # cluster 2 (freq y governor)
     for cpu in 4 5 6; do
-    tsu -c "sh -c 'echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor'"
-    tsu -c "sh -c 'echo 1401000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq'"
-    tsu -c "sh -c 'echo 1 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo powersave | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+    echo 1401000 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+    echo 1 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: powersave, 1401MHz, online"
     done
 
@@ -60,13 +60,13 @@ elif [ "$opcion" -eq 2 ]; then
 elif [ "$opcion" -eq 3 ]; then
     # Encender todos los núcleos
     for cpu in 0 1 2 3 4 5 6 7; do
-    tsu -c "sh -c 'echo 1 > /sys/devices/system/cpu/cpu$cpu/online'"
+    echo 1 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: online"
     done
     # cluster 1-2 (freq y governor)
     for cpu in 0 1 2 3 4 5 6 7; do
-    tsu -c "sh -c 'echo performance > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor'"
-    tsu -c "sh -c 'echo 1804000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq'"
+    echo performance | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+    echo 1804000 | tsu -c "tee /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
         echo "CPU$cpu: performance, 1804MHz, online"
     done
 else
