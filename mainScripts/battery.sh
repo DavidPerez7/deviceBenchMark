@@ -12,7 +12,7 @@ for ((i=1; i<=numConsultas; i++)); do
     consumoMAH=$(su -c "cat /sys/class/power_supply/battery/current_now")
     echo "consumo en mAh: $consumoMAH"
     consumos+=("$consumoMAH")
-    sleep 1
+    sleep 1.2
 done
 
 declare sumas=0
@@ -21,7 +21,7 @@ for ((j=0; j<${#consumos[@]}; j++)); do
 done
 
 promedioConsumo=$(($sumas / ${#consumos[@]}))
-declare promedioPorcentaje=$((($promedioConsumo / $capacidadMAH) * 100))
+promedioPorcentaje=$((($promedioConsumo * 100) / $capacidadMAH))
 
 sleep 1
 echo "Consumo promedio en mAh: $promedioConsumo"
