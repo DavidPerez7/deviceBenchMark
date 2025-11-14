@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-declare numConsultas=100
+declare numConsultas=60
 declare capacidadMAH=$(su -c "cat /sys/class/power_supply/battery/charge_full")
 echo "-- CONSULTAS DE CONSUMO DE BATERÍA --"
 sleep 1
