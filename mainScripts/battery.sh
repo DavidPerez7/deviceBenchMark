@@ -25,5 +25,5 @@ promedioPorcentaje=$((($promedioConsumo * 100) / $capacidadMAH))
 
 sleep 1
 echo "Consumo promedio en mAh: $promedioConsumo"
-echo "Consumo promedio en porcentaje: $promedioPorcentaje%"
+echo "Consumo promedio en porcentaje /h: $promedioPorcentaje%"
 echo "-- FIN DE CONSULTAS --"
