@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 
-declare numConsultas=45
+declare numConsultas=50
 declare capacidadMAH=$(su -c "cat /sys/class/power_supply/battery/charge_full")
 echo "-- CONSULTAS DE CONSUMO DE BATERÍA --"
 sleep 1
@@ -12,7 +12,7 @@ for ((i=1; i<=numConsultas; i++)); do
     consumoMAH=$(su -c "cat /sys/class/power_supply/battery/current_now")
     echo "consumo en mAh: $consumoMAH"
     consumos+=("$consumoMAH")
-    sleep 1.2
+    sleep 1.35
 done
 
 declare sumas=0
