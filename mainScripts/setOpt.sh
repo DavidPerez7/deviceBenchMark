@@ -15,7 +15,7 @@ read opcion
 # -- OPCION 1
 if [ "$opcion" -eq 1 ]; then
     echo "= APAGANDO NUCLEOS ="
-    for cpu in 1 2 3 7; do
+    for cpu in 1 2 3 6 7; do
     su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
@@ -27,7 +27,7 @@ if [ "$opcion" -eq 1 ]; then
         echo "CPU$cpu: powersave, 1363MHz, online"
     done
     echo "= CLUSTER 2 ="
-    for cpu in 4 5 6; do
+    for cpu in 4 5; do
     su -c "echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
     su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
@@ -39,12 +39,12 @@ if [ "$opcion" -eq 1 ]; then
     su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
 
     echo "= PANTALLA Y ANIMACIONES ="
-    su -c  wm size 640x1280
-    su -c  wm density 235
+    su -c  wm size 560x1230
+    su -c  wm density 220
 
-    su -c "settings put global window_animation_scale 0.1"
-    su -c "settings put global transition_animation_scale 0.1"
-    su -c "settings put global animator_duration_scale 0.1"
+    su -c "settings put global window_animation_scale 0"
+    su -c "settings put global transition_animation_scale 0"
+    su -c "settings put global animator_duration_scale 0"
     
 
 # -- OPCION 2
