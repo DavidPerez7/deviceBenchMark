@@ -40,7 +40,7 @@ if [ "$opcion" -eq 1 ]; then
     echo "GPU: powersave, 400MHz, online"
 
     echo "= PANTALLA Y ANIMACIONES ="
-    su -c  wm size 560x1230
+    su -c  wm size 560x1000
     su -c  wm density 160
     echo "Screen: 560x1230, 160dpi"
 
