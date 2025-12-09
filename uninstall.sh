@@ -1,1 +1,1 @@
-sudo rm -rf ~/BatteryOpt
+sudo rm -rf ~/TOBt
