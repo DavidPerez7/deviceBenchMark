@@ -18,6 +18,12 @@ su -c "/data/data/com.termux/files/usr/bin/bash /data/data/com.termux/files/home
 ```
 Así puedes ejecutar el script con solo `./ejecutable.sh`.
 
+### Error común: "bash: inaccessible or not found"
+- Al usar `su -c "bash script.sh"`, puede aparecer el error `/system/bin/sh: bash: inaccessible or not found`.
+- **Causa**: Bajo `su` (root), el PATH no incluye el directorio de binarios de Termux (`/data/data/com.termux/files/usr/bin/`).
+- **Solución**: Siempre usa la ruta absoluta a bash en comandos `su -c`, ej. `su -c "/data/data/com.termux/files/usr/bin/bash script.sh"`.
+- Esto evita que el error se repita en futuros scripts.
+
 ---
 
 ## 2. Root en Termux
