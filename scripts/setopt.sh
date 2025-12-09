@@ -41,7 +41,7 @@ if [ "$opcion" -eq 1 ]; then
 
     echo "= PANTALLA Y ANIMACIONES ="
     su -c  wm size 560x1000
-    su -c  wm density 160
+    su -c  wm density 170
     echo "Screen: 560x1230, 160dpi"
 
     su -c "settings put global window_animation_scale 0"
