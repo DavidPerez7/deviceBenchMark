@@ -48,6 +48,7 @@ if [ "$opcion" -eq 1 ]; then
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
+    sleep 1
     echo "== 🔴 AHORRO EXTREMO ACTIVADO 🔴 =="
 
 
@@ -115,6 +116,3 @@ else
     echo "Opción no válida. Saliendo."
     exit 1
 fi
-
-sleep 1
-echo "-- CONFIGURACION COMPLETADA --"
