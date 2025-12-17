@@ -14,40 +14,42 @@ read opcion
 
 # -- PERFIL 1: EXTREMO
 if [ "$opcion" -eq 1 ]; then
-    echo "= APAGANDO NUCLEOS ="
+    echo "Apagando nucleos..."
     for cpu in 1 2 3 7; do
         su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
-    echo "= CLUSTER 1 ="
+    echo "Configurando cluster 1..."
     for cpu in 0; do
     su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1363000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
     su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: conservative, 1363MHz, online"
     done
-    echo "= CLUSTER 2 ="
+    echo "Configurando cluster 2..."
     for cpu in 4 5 6; do
     su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
     su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
-        echo "CPU$cpu: conservative, 1094MHz, online"
+        echo "CPU$cpu: powersave, 1094MHz, online"
     done
 
-    echo "= GPU ="
+    echo "Configurando GPU..."
     su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
     su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
     echo "GPU: powersave, 400MHz, online"
 
-    echo "= PANTALLA Y ANIMACIONES ="
+    echo "Configurando pantalla... "
     su -c  wm size 560x1000
     su -c  wm density 170
     echo "Screen: 560x1230, 160dpi"
 
+    echo "Desactivando animaciones..."
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
-    echo "Animations: desactivadas"
+    echo "== 🔴 AHORRO EXTREMO ACTIVADO 🔴 =="
+
 
 # -- OPCION 2
 elif [ "$opcion" -eq 2 ]; then
