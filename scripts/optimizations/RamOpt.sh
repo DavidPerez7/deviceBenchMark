@@ -195,12 +195,13 @@ elif [ "$opcion" -eq 3 ]; then
                 echo "  No se encontraron procesos que referencien ${ZRAM_DEV}, pero rmmod falló."
             fi
         fi
-        # Verificar si se eliminó
+        # Verificar si disksize es 0 (dispositivo neutralizado, suficiente para reinicio)
         disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
-        if [ "${disksize_val}" = "missing" ]; then
-            echo "  Dispositivo zram eliminado completamente."
+        if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
+            echo "  Dispositivo zram neutralizado (disksize: ${disksize_val}). Permitiendo reinicio."
         else
-            echo "  Dispositivo zram aún presente (disksize: ${disksize_val})."
+            echo "  Error: disksize sigue en ${disksize_val}. No se pudo neutralizar zram. Abortando reinicio."
+            can_reboot=0
         fi
     else
         echo "  Dispositivo zram aún activo (disksize: ${disksize_val}). Intentando reset y rmmod..."
@@ -208,10 +209,10 @@ elif [ "$opcion" -eq 3 ]; then
         sleep 1
         su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido después de reset." || echo "  No se pudo remover módulo zram."
         disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
-        if [ "${disksize_val}" = "missing" ]; then
-            echo "  Dispositivo zram eliminado."
+        if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
+            echo "  Dispositivo zram neutralizado (disksize: ${disksize_val}). Permitiendo reinicio."
         else
-            echo "  Error: No se pudo eliminar zram completamente. Abortando reinicio."
+            echo "  Error: disksize sigue en ${disksize_val}. No se pudo neutralizar zram. Abortando reinicio."
             can_reboot=0
         fi
     fi
