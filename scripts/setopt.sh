@@ -2,24 +2,28 @@
 
 # Configuración rápida de CPU
 # CPU 0-3 (cluster 1): powersave, 1363 MHz, 4/4 núcleos
-echo "-- CONFIGURACION DE OPTIMIZACIONES --"
+echo "====================================="
+echo "== CONFIGURACION DE OPTIMIZACIONES =="
+echo "====================================="
 sleep 1
 
 declare opcion
 echo "Elgina un perfil de optimizacion de CPU:"
-echo "1. 🔴 AHORRO EXTREMO (4 nucleos activos, a 1363 y 1094 MHz)"
+echo "1. 🔴 AHORRO EXTREMO (4 nucleos - GPU a 400MHz - resolucion 560x1000, 170dpi)"
 echo "2. 🟡 AHORRO NORMAL (6 nucleos activos a 1536 y 1401 MHz)"
-echo "3. 🟢 RENDIMIENTO (8 nucleos activos a 1804MHz)"
+echo "3. 🟢 RENDIMIENTO MAXIMO (8 nucleos activos a 1804MHz)"
 read opcion
 
 # -- PERFIL 1: EXTREMO
 if [ "$opcion" -eq 1 ]; then
     echo "Apagando nucleos..."
+    sleep 1
     for cpu in 1 2 3 7; do
         su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
     echo "Configurando cluster 1..."
+    sleep 1
     for cpu in 0; do
     su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1363000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
@@ -27,6 +31,7 @@ if [ "$opcion" -eq 1 ]; then
         echo "CPU$cpu: conservative, 1363MHz, online"
     done
     echo "Configurando cluster 2..."
+    sleep 1
     for cpu in 4 5 6; do
     su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
@@ -35,16 +40,19 @@ if [ "$opcion" -eq 1 ]; then
     done
 
     echo "Configurando GPU..."
+    sleep 1
     su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
     su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
     echo "GPU: powersave, 400MHz, online"
 
     echo "Configurando pantalla... "
+    sleep 1
     su -c  wm size 560x1000
     su -c  wm density 170
     echo "Screen: 560x1230, 160dpi"
 
     echo "Desactivando animaciones..."
+    sleep 1
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
@@ -79,38 +87,46 @@ elif [ "$opcion" -eq 2 ]; then
     su -c "echo 560000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
 
     echo "= PANTALLA Y ANIMACIONES ="
-    su -c  wm size 640x1280
-    su -c  wm density 235
+    su -c  wm size reset  # para el redmi 7 es 720x1520
+    su -c  wm density 265
 
     su -c "settings put global window_animation_scale 0.2"
     su -c "settings put global transition_animation_scale 0.2"
     su -c "settings put global animator_duration_scale 0.2"
 
-# -- OPCION 3
+# -- PERFIL 3: RENDIMIENTO MAXIMO
+
 elif [ "$opcion" -eq 3 ]; then
-    echo "= ENCENDIENDO NUCLEOS ="
+    echo "Activando todos los nucleos..."
+    sleep 1
     for cpu in 0 1 2 3 4 5 6 7; do
     su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: online"
     done
-    echo "= CLUSTERS (ALL) ="
+
+    echo "Configurando todos los nucleos..."
+    sleep 1
     for cpu in 0 1 2 3 4 5 6 7; do
     su -c "echo performance > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
     su -c "echo 1804000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+    su -c "echo 1804000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
         echo "CPU$cpu: performance, 1804MHz, online"
     done
 
-    echo "= GPU ="
+    echo "Configurando GPU..."
+    sleep 1
     su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
     su -c "echo 725000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+    su -c "echo 725000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
 
-    echo "= PANTALLA Y ANIMACIONES ="
-    su -c  wm size reset
-    su -c  wm density 265
+    echo "Configurando pantalla y animaciones..."
+    sleep 1
+    su -c  wm size 640x1280
+    su -c  wm density 235
 
-    su -c "settings put global window_animation_scale 0.8"
-    su -c "settings put global transition_animation_scale 0.8"
-    su -c "settings put global animator_duration_scale 0.8"
+    su -c "settings put global window_animation_scale 0"
+    su -c "settings put global transition_animation_scale 0"
+    su -c "settings put global animator_duration_scale 0"
 
 else
     echo "Opción no válida. Saliendo."
