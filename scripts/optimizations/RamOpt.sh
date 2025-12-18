@@ -133,7 +133,7 @@ elif [ "$opcion" -eq 3 ]; then
                     su -c "sh -c 'echo "error: ${err_out}" >> ${LOG}'" 2>/dev/null || true
                     su -c "sh -c 'echo "contents of /proc/swaps:" >> ${LOG}'" 2>/dev/null || true
                     su -c "sh -c 'cat /proc/swaps >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                    su -c "sh -c 'echo "ls /sys/block/zram0/ (files):" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'echo \"ls /sys/block/zram0/ \(files\):\" >> ${LOG}'" 2>/dev/null || true
                     su -c "sh -c 'ls -la /sys/block/zram0/ >> ${LOG} 2>/dev/null'" 2>/dev/null || true
                     su -c "sh -c 'echo "dmesg tail:" >> ${LOG}'" 2>/dev/null || true
                     su -c "sh -c 'dmesg | tail -n 50 >> ${LOG} 2>/dev/null'" 2>/dev/null || true
