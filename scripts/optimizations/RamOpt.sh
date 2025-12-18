@@ -117,35 +117,6 @@ elif [ "$opcion" -eq 3 ]; then
     else
         echo "  No hay entrada de swap para ${ZRAM_DEV} en /proc/swaps; omitiendo swapoff."
     fi
-                    fi
-
-                    sleep 1
-                done
-
-                if [ "${sw_ok}" -ne 1 ]; then
-                    echo "      Aviso: No fue posible desactivar swap en ${sdev}. Recolectando diagnósticos..."
-                    can_reboot=0  # Marcar que no se puede reiniciar
-                    # Volcar diagnósticos útiles al log
-                    LOG="/data/local/tmp/RamOpt.log"
-                    ts=$(date '+%F %T')
-                    su -c "sh -c 'echo "=== ${ts} - swapoff FAILED for ${sdev}" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'echo "error: ${err_out}" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'echo "contents of /proc/swaps:" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'cat /proc/swaps >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                    su -c "sh -c 'echo \"ls /sys/block/zram0/ \(files\):\" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'ls -la /sys/block/zram0/ >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                    su -c "sh -c 'echo "dmesg tail:" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'dmesg | tail -n 50 >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                    su -c "sh -c 'echo "open fds referencing ${sdev}:" >> ${LOG}'" 2>/dev/null || true
-                    su -c "sh -c 'grep -H "${sdev}" /proc/*/fd 2>/dev/null | sed -n "1,100p" >> ${LOG}'" 2>/dev/null || true
-
-                    echo "      Ver diagnóstico escrito en ${LOG}. Puedes pegar su contenido si quieres ayuda." 
-                fi
-            done
-        fi
-    else
-        echo "  swapoff OK (o no había swap activo)."
-    fi
 
     echo "[2/6] Intentando poner el tamaño de disco de zram a 0 (reintentos)..."
     disksize_ok=0
