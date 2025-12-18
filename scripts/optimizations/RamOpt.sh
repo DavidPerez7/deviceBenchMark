@@ -161,7 +161,8 @@ elif [ "$opcion" -eq 3 ]; then
                 su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'"
                 pids=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | awk -F'/' '{print \\$3}' | sort -u" 2>/dev/null || true)
                 for pid in ${pids}; do
-                    echo "    PID: ${pid} - CMD: $(su -c "tr '\\0' ' ' < /proc/${pid}/cmdline 2>/dev/null || echo '[no access]')"
+                    cmdline=$(su -c "tr '\0' ' ' < /proc/${pid}/cmdline 2>/dev/null || echo '[no access]'" 2>/dev/null || echo '[no access]')
+                    echo "    PID: ${pid} - CMD: ${cmdline}"
                 done
 
                 read -p "  ¿Terminar estos procesos ahora? [y/N]: " kill_ans
