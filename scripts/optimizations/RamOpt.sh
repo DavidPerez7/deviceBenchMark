@@ -150,17 +150,26 @@ elif [ "$opcion" -eq 3 ]; then
 
     echo "[2/6] Intentando poner el tamaño de disco de zram a 0 (reintentos)..."
     disksize_ok=0
-    for i in 1 2 3; do
+    for i in 1 2 3 4 5; do
+        # Intentar setear a 0 directamente
         if su -c "echo 0 > ${ZRAM_SYS}/disksize" 2>/dev/null; then
             disksize_ok=1
             break
         fi
-        echo "  Falló setear disksize a 0, intento ${i}/3..."
+        # Si falla, resetear y esperar
+        su -c "echo 1 > ${ZRAM_SYS}/reset" 2>/dev/null || true
+        sleep 1
+        # Intentar de nuevo después de reset
+        if su -c "echo 0 > ${ZRAM_SYS}/disksize" 2>/dev/null; then
+            disksize_ok=1
+            break
+        fi
+        echo "  Falló setear disksize a 0, intento ${i}/5..."
         sleep 1
     done
 
     if [ "$disksize_ok" -eq 0 ]; then
-        echo "  Error crítico: No se pudo setear disksize a 0 después de 3 intentos. Abortando reinicio."
+        echo "  Error crítico: No se pudo setear disksize a 0 después de 5 intentos. Abortando reinicio."
         can_reboot=0
     fi
 
@@ -169,13 +178,9 @@ elif [ "$opcion" -eq 3 ]; then
     if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
         echo "  Dispositivo zram ahora en 0B (o innexistente): ${disksize_val}"
     else
-        echo "  No se consiguió dejar disksize a 0 (valor: ${disksize_val}). Intentando remover el módulo zram si está cargado..."
-        # Intentar quitar el módulo zram (si lsmod/rmmod están disponibles)
-        if su -c "lsmod 2>/dev/null | grep -q zram" 2>/dev/null; then
-            su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido." || echo "  No fue posible remover el módulo zram.";
-        else
-            echo "  lsmod no disponible o zram no aparece en lsmod; no se intentó rmmod."
-        fi
+        echo "  No se consiguió dejar disksize a 0 (valor: ${disksize_val}). Intentando remover el módulo zram..."
+        # Intentar quitar el módulo zram directamente (ya que lsmod no está disponible)
+        su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido." || echo "  No fue posible remover el módulo zram."
 
         disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
         if [ "${disksize_val}" != "0" ] && [ "${disksize_val}" != "missing" ]; then
@@ -190,7 +195,9 @@ elif [ "$opcion" -eq 3 ]; then
     su -c 'sysctl -w vm.dirty_ratio=20'
     su -c 'sysctl -w vm.vfs_cache_pressure=100'
     su -c 'sysctl -w vm.min_free_kbytes=65536'
-    su -c 'echo 0 > /proc/sys/vm/nr_hugepages' 2>/dev/null
+    if [ -f /proc/sys/vm/nr_hugepages ]; then
+        su -c 'echo 0 > /proc/sys/vm/nr_hugepages' 2>/dev/null
+    fi
 
     echo "[3/6] Verificando valores restaurados:"
     echo "vm.swappiness: $(su -c 'cat /proc/sys/vm/swappiness')"
@@ -198,7 +205,7 @@ elif [ "$opcion" -eq 3 ]; then
     echo "vm.dirty_ratio: $(su -c 'cat /proc/sys/vm/dirty_ratio')"
     echo "vm.vfs_cache_pressure: $(su -c 'cat /proc/sys/vm/vfs_cache_pressure')"
     echo "vm.min_free_kbytes: $(su -c 'cat /proc/sys/vm/min_free_kbytes')"
-    echo "nr_hugepages: $(su -c 'cat /proc/sys/vm/nr_hugepages')"
+    echo "nr_hugepages: $(su -c 'cat /proc/sys/vm/nr_hugepages' 2>/dev/null || echo 'N/A')"
 
     if [ "$can_reboot" -eq 1 ]; then
         echo "[4/6] Esperando 3 segundos antes de reiniciar..."
