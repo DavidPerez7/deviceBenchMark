@@ -56,6 +56,28 @@ elif [ "$opcion" -eq 3 ]; then
     ZRAM_SYS="/sys/block/zram0"
     can_reboot=1  # Flag para controlar si proceder al reinicio
 
+    # EJECUTAR DIAGNÓSTICOS para ayudar a identificar quién crea/activa zram en el arranque
+    echo "[DIAGNÓSTICO] Buscando referencias a zram/swapon/mkswap en rutas comunes (puede tardar)..."
+    su -c 'grep -R --line-number "zram\|swapon\|mkswap" /init* /system /vendor /data /etc 2>/dev/null | sed -n "1,200p" || echo "(no se encontraron referencias o faltan permisos)"'
+
+    echo "[DIAGNÓSTICO] dmesg -> últimas entradas relacionadas (zram/swap)..."
+    su -c 'dmesg | egrep -i "zram|swap|swapon|mkswap" | tail -n 200 || echo "(sin coincidencias en dmesg)"'
+
+    echo "[DIAGNÓSTICO] logcat -> últimas entradas relacionadas (si disponible)..."
+    su -c 'logcat -d | egrep -i "zram|swap|swapon|mkswap" | sed -n "1,200p" 2>/dev/null || echo "(logcat no disponible o sin coincidencias)"'
+
+    echo "[DIAGNÓSTICO] /proc/swaps, /sys/block/zram0 y procesos relacionados:"
+    su -c 'cat /proc/swaps 2>/dev/null || echo "(no se pudo leer /proc/swaps)"'
+    su -c 'ls -la /sys/block | grep zram || echo "(no existe /sys/block/zram*)"'
+    su -c 'cat /sys/block/zram0/disksize 2>/dev/null || echo "(no existe /sys/block/zram0/disksize)"'
+    su -c 'cat /sys/block/zram0/mem_used_total 2>/dev/null || echo "(no existe /sys/block/zram0/mem_used_total)"'
+    su -c 'ps -A 2>/dev/null | egrep "zram|zramctl|swap|swapon" || echo "(sin procesos evidentes relacionados)"'
+
+    echo "[DIAGNÓSTICO] Búsqueda de ficheros/scripts que contengan 'zram' (resultados limitados)..."
+    su -c 'grep -R --line-number "zram" /init* /system /vendor /data /etc 2>/dev/null | sed -n "1,200p" || echo "(no se encontraron archivos que contengan 'zram' en rutas comunes)"'
+
+    echo "[DIAGNÓSTICO] FIN. Copia y pega este bloque para analizar quién recrea zram en el reinicio."
+
     # Comprobar si el dispositivo aparece en /proc/swaps; si no, no es necesario swapoff
     echo "[1/6] Comprobando /proc/swaps para ${ZRAM_DEV}..."
     if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
@@ -148,51 +170,102 @@ elif [ "$opcion" -eq 3 ]; then
     # Verificaciones finales
     disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
     if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
-        echo "  Dispositivo zram en 0B o inexistente: ${disksize_val}. Intentando remover módulo para eliminación completa..."
-        # Intentar remover el módulo zram
+        echo "  Dispositivo zram en 0B o inexistente: ${disksize_val}. Intentando remover módulo para eliminación completa..."        echo "  Nota: para modo no interactivo y forzar terminación, exporta: FORCE_ZRAM=1 antes de ejecutar el script"        # Intentar remover el módulo zram
         if su -c "rmmod zram" 2>/dev/null; then
             echo "  Módulo zram removido exitosamente."
         else
-            echo "  No se pudo remover módulo zram directamente (posiblemente en uso). Buscando procesos que referencien ${ZRAM_DEV}..."
-            # Buscar fds que apunten al dispositivo y extraer pids
-            holders=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null || true")
-            if [ -n "${holders}" ]; then
-                echo "  Procesos con fds abiertos al dispositivo (muestra limitada):"
-                su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'"
-                pids=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | awk -F'/' '{print \\$3}' | sort -u" 2>/dev/null || true)
-                for pid in ${pids}; do
-                    cmdline=$(su -c "tr '\0' ' ' < /proc/${pid}/cmdline 2>/dev/null || echo '[no access]'" 2>/dev/null || echo '[no access]')
-                    echo "    PID: ${pid} - CMD: ${cmdline}"
-                done
+            echo "  No se pudo remover módulo zram directamente (posiblemente en uso o integrado en el kernel). Ejecutando diagnósticos adicionales..."
+            echo "  --- /proc/modules (zram) ---"
+            su -c 'grep -w "zram" /proc/modules 2>/dev/null || true' || true
+            echo "  --- /sys/module/zram (exists?) ---"
+            su -c 'ls -la /sys/module/zram 2>/dev/null || true' || true
 
-                read -p "  ¿Terminar estos procesos ahora? [y/N]: " kill_ans
-                if [ "${kill_ans}" = "y" ] || [ "${kill_ans}" = "Y" ]; then
-                    for pid in ${pids}; do
-                        echo "    Enviando SIGTERM a ${pid}..."
-                        su -c "kill -15 ${pid}" 2>/dev/null || true
-                    done
-                    sleep 2
-                    # Reintentar rmmod
-                    if su -c "rmmod zram" 2>/dev/null; then
-                        echo "  Módulo zram removido tras terminar procesos."
+            # Intentar modprobe -r si está disponible
+            removed=0
+            if command -v modprobe >/dev/null 2>&1; then
+                echo "  Intentando modprobe -r zram..."
+                if su -c "modprobe -r zram" 2>/dev/null; then
+                    echo "  modprobe -r funcionó."
+                    removed=1
+                else
+                    echo "  modprobe -r falló o no es aplicable."
+                fi
+            fi
+
+            # Intentar rmmod -f si está disponible (con advertencia)
+            if [ "$removed" -ne 1 ]; then
+                if command -v rmmod >/dev/null 2>&1 && rmmod -? 2>&1 | grep -q "-f"; then
+                    echo "  Intentando rmmod -f zram (FORZAR, puede ser peligroso)..."
+                    if su -c "rmmod -f zram" 2>/dev/null; then
+                        echo "  rmmod -f funcionó."
+                        removed=1
                     else
-                        echo "  Aún no se pudo remover zram. Aplicando SIGKILL a los PIDs listados..."
+                        echo "  rmmod -f falló o no está permitido por el kernel."
+                    fi
+                fi
+            fi
+
+            # Si aún no se removió, buscar procesos que mantengan fds y ofrecer terminarlos
+            if [ "$removed" -ne 1 ]; then
+                holders=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null || true")
+                if [ -n "${holders}" ]; then
+                    echo "  Procesos con fds abiertos al dispositivo (muestra limitada):"
+                    su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'"
+                    pids=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | awk -F'/' '{print \\$3}' | sort -u" 2>/dev/null || true)
+                    for pid in ${pids}; do
+                        cmdline=$(su -c "tr '\0' ' ' < /proc/${pid}/cmdline 2>/dev/null || echo '[no access]'" 2>/dev/null || echo '[no access]')
+                        echo "    PID: ${pid} - CMD: ${cmdline}"
+                    done
+
+                    # Soportar modo forzado no interactivo con variable de entorno FORCE_ZRAM=1
+                    if [ "${FORCE_ZRAM}" = "1" ]; then
+                        echo "  FORCE_ZRAM=1: terminando procesos automáticamente..."
+                        kill_ans=y
+                    else
+                        read -p "  ¿Terminar estos procesos ahora? [y/N]: " kill_ans
+                    fi
+
+                    if [ "${kill_ans}" = "y" ] || [ "${kill_ans}" = "Y" ]; then
                         for pid in ${pids}; do
-                            echo "    Enviando SIGKILL a ${pid}..."
-                            su -c "kill -9 ${pid}" 2>/dev/null || true
+                            echo "    Enviando SIGTERM a ${pid}..."
+                            su -c "kill -15 ${pid}" 2>/dev/null || true
                         done
-                        sleep 1
+                        sleep 2
                         if su -c "rmmod zram" 2>/dev/null; then
-                            echo "  Módulo zram removido tras SIGKILL."
+                            echo "  Módulo zram removido tras terminar procesos."
+                            removed=1
                         else
-                            echo "  No fue posible remover zram incluso tras SIGKILL."
+                            echo "  Aún no se pudo remover zram. Aplicando SIGKILL a los PIDs listados..."
+                            for pid in ${pids}; do
+                                echo "    Enviando SIGKILL a ${pid}..."
+                                su -c "kill -9 ${pid}" 2>/dev/null || true
+                            done
+                            sleep 1
+                            if su -c "rmmod zram" 2>/dev/null; then
+                                echo "  Módulo zram removido tras SIGKILL."
+                                removed=1
+                            else
+                                echo "  No fue posible remover zram incluso tras SIGKILL."
+                            fi
                         fi
+                    else
+                        echo "  No se terminaron procesos. No se intentará forzar eliminación del módulo."
                     fi
                 else
-                    echo "  No se terminaron procesos. No se intentará forzar eliminación del módulo."
+                    echo "  No se encontraron procesos que referencien ${ZRAM_DEV}, y los intentos de rmmod/modprobe fallaron."
                 fi
-            else
-                echo "  No se encontraron procesos que referencien ${ZRAM_DEV}, pero rmmod falló."
+            fi
+
+            # Estado final y recomendaciones
+            echo "  --- Estado final / comprobaciones ---"
+            su -c 'cat /sys/block/zram0/disksize 2>/dev/null || echo "(no existe /sys/block/zram0/disksize)"'
+            su -c 'cat /sys/block/zram0/mem_used_total 2>/dev/null || echo "(no existe /sys/block/zram0/mem_used_total)"'
+            echo "  /proc/modules (zram):"
+            su -c 'grep -w "zram" /proc/modules 2>/dev/null || echo "(zram no presente en /proc/modules)"'
+
+            if [ "$removed" -ne 1 ]; then
+                echo "  Aviso: No fue posible eliminar el módulo zram. Si /sys/block/zram0 existe y su disksize=0, el dispositivo está neutralizado y es seguro continuar." 
+                echo "  Si deseas eliminarlo completamente, puede ser necesario: 1) identificar y cerrar procesos que lo usan, 2) usar rmmod -f (si tu kernel lo permite), o 3) recompilar/desactivar zram en el kernel/boot.")
             fi
         fi
         # Verificar si disksize es 0 (dispositivo neutralizado, suficiente para reinicio)
