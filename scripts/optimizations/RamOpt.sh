@@ -75,7 +75,7 @@ elif [ "$opcion" -eq 3 ]; then
         # Si sigue presente en /proc/swaps, intentar desactivar otras entradas individualmente
         if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
             echo "  La entrada de ${ZRAM_DEV} sigue en /proc/swaps tras intentos; desactivando entradas listadas en /proc/swaps..."
-            swaps_list=$(su -c "awk 'NR>1 {print \$1}' /proc/swaps 2>/dev/null || true)
+            swaps_list=$(su -c "awk 'NR>1 {print \$1}' /proc/swaps 2>/dev/null || true")
             if [ -z "${swaps_list}" ]; then
                 echo "    No se encontraron entradas en /proc/swaps o no pudo leerse el archivo."
             else
