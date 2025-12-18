@@ -265,7 +265,7 @@ elif [ "$opcion" -eq 3 ]; then
 
             if [ "$removed" -ne 1 ]; then
                 echo "  Aviso: No fue posible eliminar el módulo zram. Si /sys/block/zram0 existe y su disksize=0, el dispositivo está neutralizado y es seguro continuar." 
-                echo "  Si deseas eliminarlo completamente, puede ser necesario: 1) identificar y cerrar procesos que lo usan, 2) usar rmmod -f (si tu kernel lo permite), o 3) recompilar/desactivar zram en el kernel/boot.")
+                echo "  Si deseas eliminarlo completamente, puede ser necesario: 1) identificar y cerrar procesos que lo usan, 2) usar rmmod -f (si tu kernel lo permite), o 3) recompilar/desactivar zram en el kernel/boot."
             fi
         fi
         # Verificar si disksize es 0 (dispositivo neutralizado, suficiente para reinicio)
