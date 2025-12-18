@@ -12,6 +12,7 @@ echo "Elgina un perfil de optimizacion de CPU:"
 echo "1. 🔴 AHORRO EXTREMO (4 nucleos - GPU a 400MHz - resolucion 560x1000, 170dpi)"
 echo "2. 🟡 AHORRO NORMAL (6 nucleos activos a 1536 y 1401 MHz)"
 echo "3. 🟢 RENDIMIENTO MAXIMO (8 nucleos activos a 1804MHz)"
+echo "4. 🔄 VALORES DE FÁBRICA (schedutil, resolución y animaciones predeterminadas)"
 read opcion
 
 # -- PERFIL 1: EXTREMO
@@ -127,6 +128,30 @@ elif [ "$opcion" -eq 3 ]; then
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
+
+# -- PERFIL 4: VALORES DE FÁBRICA
+elif [ "$opcion" -eq 4 ]; then
+    echo "Restaurando valores de fábrica..."
+    sleep 1
+    for cpu in 0 1 2 3 4 5 6 7; do
+        su -c "echo schedutil > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        echo "CPU$cpu: schedutil, online"
+    done
+
+    echo "Restaurando GPU..."
+    su -c "echo msm-adreno-tz > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
+
+    echo "Restaurando resolución y densidad de pantalla..."
+    su -c  wm size reset
+    su -c  wm density reset
+
+    echo "Restaurando animaciones..."
+    su -c "settings put global window_animation_scale 1"
+    su -c "settings put global transition_animation_scale 1"
+    su -c "settings put global animator_duration_scale 1"
+
+    echo "== 🔄 VALORES DE FÁBRICA RESTAURADOS 🔄 =="
 
 else
     echo "Opción no válida. Saliendo."
