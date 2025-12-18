@@ -332,11 +332,11 @@ su -c 'logcat -d | egrep -i "exkernel|flar2|exkernelmanager" | sed -n "1,200p" 2
         echo "--- /sys/block/zram0 details ---"
         su -c 'ls -la /sys/block/zram0 2>/dev/null || echo "(no existe /sys/block/zram0)"'
         echo "--- /sys/block/zram0/* (values) ---"
-        su -c "sh -c 'for f in /sys/block/zram0/* 2>/dev/null; do echo "--- $f ---"; cat \"$f\" 2>/dev/null || echo "(no read)"; done'" 2>/dev/null || true
+        su -c 'for f in /sys/block/zram0/* 2>/dev/null; do echo "--- $f ---"; cat "$f" 2>/dev/null || echo "(no read)"; done' 2>/dev/null || true
         echo "--- /sys/module/zram (module) ---"
         su -c 'ls -la /sys/module/zram 2>/dev/null || echo "(no existe /sys/module/zram)"'
         echo "--- /sys/module/zram/parameters ---"
-        su -c "sh -c 'for p in /sys/module/zram/parameters/* 2>/dev/null; do echo "--- /sys/module/zram/parameters/$(basename \$p) ---"; cat \"$p\" 2>/dev/null || echo "(no read)"; done'" 2>/dev/null || true
+        su -c 'for p in /sys/module/zram/parameters/* 2>/dev/null; do echo "--- /sys/module/zram/parameters/$(basename $p) ---"; cat "$p" 2>/dev/null || echo "(no read)"; done' 2>/dev/null || true
         echo "--- modinfo/zramctl if present ---"
         if command -v zramctl >/dev/null 2>&1; then
             zramctl -l 2>/dev/null || true
