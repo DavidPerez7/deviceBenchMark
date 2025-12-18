@@ -99,15 +99,18 @@ elif [ "$opcion" -eq 3 ]; then
                     if [ "${sw_ok}" -ne 1 ]; then
                         echo "      No fue posible desactivar swap en ${sdev}; recolectando diagnósticos y abortando reinicio."
                         can_reboot=0
-                        LOG="/data/local/tmp/RamOpt.log"
                         ts=$(date '+%F %T')
-                        su -c "sh -c 'echo "=== ${ts} - swapoff FAILED for ${sdev}" >> ${LOG}'" 2>/dev/null || true
-                        su -c "sh -c 'echo "error: ${err_out}" >> ${LOG}'" 2>/dev/null || true
-                        su -c "sh -c 'cat /proc/swaps >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                        su -c "sh -c 'ls -la /sys/block/zram0/ >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                        su -c "sh -c 'dmesg | tail -n 50 >> ${LOG} 2>/dev/null'" 2>/dev/null || true
-                        su -c "sh -c 'grep -H "${sdev}" /proc/*/fd 2>/dev/null | sed -n "1,100p" >> ${LOG}'" 2>/dev/null || true
-                        echo "      Diagnóstico guardado en ${LOG}."
+                        echo "\n===== DIAGNÓSTICO ${ts} - swapoff FAILED for ${sdev} ====="
+                        echo "error: ${err_out}"
+                        echo "--- /proc/swaps (privileged) ---"
+                        su -c 'cat /proc/swaps' 2>/dev/null || echo "(no se pudo leer /proc/swaps)"
+                        echo "--- /sys/block/zram0/ ---"
+                        su -c 'ls -la /sys/block/zram0/' 2>/dev/null || echo "(no se pudo listar /sys/block/zram0)"
+                        echo "--- dmesg (tail 50) ---"
+                        su -c 'dmesg | tail -n 50' 2>/dev/null || echo "(no se pudo leer dmesg)"
+                        echo "--- Open fds referencing ${sdev} ---"
+                        su -c "sh -c 'grep -H \"${sdev}\" /proc/*/fd 2>/dev/null | sed -n \"1,200p\"'" 2>/dev/null || echo "(no se encontraron fds)"
+                        echo "===== FIN DIAGNÓSTICO =====\n"
                     fi
                 done
             fi
