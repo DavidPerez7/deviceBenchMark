@@ -1,1 +1,1 @@
-sudo rm -rf ~/TBopt
+sudo rm -rf ~/RedmiOpt
