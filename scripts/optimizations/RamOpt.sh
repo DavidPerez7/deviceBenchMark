@@ -314,9 +314,28 @@ su -c 'logcat -d | egrep -i "exkernel|flar2|exkernelmanager" | sed -n "1,200p" 2
     echo "nr_hugepages: $(su -c 'cat /proc/sys/vm/nr_hugepages' 2>/dev/null || echo 'N/A')"
 
     if [ "$can_reboot" -eq 1 ]; then
-        echo "[4/6] Esperando 3 segundos antes de reiniciar..."
+        echo "[4/6] Ejecutando comprobaciones previas al reinicio (salida en pantalla):"
+        ts=$(date '+%F %T')
+        echo "===== DIAGNÓSTICO PRE-REBOOT ${ts} ====="
+        echo "--- free -h ---"
+        free -h
+        echo "--- /proc/swaps ---"
+        su -c 'cat /proc/swaps' 2>/dev/null || echo "(no se pudo leer /proc/swaps)"
+        echo "--- /sys/block (zram link) ---"
+        su -c 'ls -la /sys/block | grep zram || echo "(no existe /sys/block/zram*)"'
+        echo "--- /sys/block/zram0/disksize ---"
+        su -c 'cat /sys/block/zram0/disksize' 2>/dev/null || echo "(no existe)"
+        echo "--- /sys/block/zram0/mem_used_total ---"
+        su -c 'cat /sys/block/zram0/mem_used_total' 2>/dev/null || echo "(no existe)"
+        echo "--- Procesos que referencian ${ZRAM_DEV} (fds, limit 200) ---"
+        su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'" 2>/dev/null || echo "(no se encontraron fds)"
+        echo "--- dmesg (ultimas 80 entradas relacionadas) ---"
+        su -c 'dmesg | egrep -i "zram|swap|swapon|mkswap" | tail -n 80' 2>/dev/null || echo "(no se pudo leer dmesg)"
+        echo "===== FIN DIAGNÓSTICO PRE-REBOOT ====="
+
+        echo "[5/6] Esperando 3 segundos antes de reiniciar..."
         sleep 3
-        echo "[5/6] Reiniciando el dispositivo..."
+        echo "[6/6] Reiniciando el dispositivo..."
         su -c 'reboot'
     else
         echo "[4/6] Reinicio abortado debido a fallos en la eliminación de swap/zram. Diagnósticos ya mostrados arriba."
