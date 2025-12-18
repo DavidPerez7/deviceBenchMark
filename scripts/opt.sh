@@ -12,7 +12,7 @@ echo "╚═╝  ╚═╝╚══════╝╚═════╝ ╚═�
 echo ""
 sleep 1
 echo "==============================="
-echo "Valores actuales del sistema:"
+echo "VALORES ACTUALES DEL SISTEMA:"
 echo "==============================="
 echo "Governor CPU0: $(su -c 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor')"
 echo "Governor CPU4: $(su -c 'cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor')"
@@ -33,6 +33,11 @@ echo "Granularidad de wakeup del scheduler: $(su -c 'sysctl kernel.sched_wakeup_
 echo "==============================="
 echo "Resolución actual: $(su -c 'wm size')"
 echo "DPI actual: $(su -c 'wm density')"
+echo "==============================="
+echo ""
+echo "Escala de animación de ventana: $(su -c 'settings get global window_animation_scale')"
+echo "Escala de animación de transición: $(su -c 'settings get global transition_animation_scale')"
+echo "Escala de duración del animador: $(su -c 'settings get global animator_duration_scale')"
 echo "==============================="
 echo ""
 sleep 1
