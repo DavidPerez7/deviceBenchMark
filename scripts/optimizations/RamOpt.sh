@@ -51,8 +51,14 @@ elif [ "$opcion" -eq 2 ]; then
 
 elif [ "$opcion" -eq 3 ]; then
     echo "[1/5] Restaurando valores de fábrica..."
-    su -c 'swapoff /dev/block/zram0' || { echo "Error al desactivar el swap. Intentando forzar..."; su -c 'echo 1 > /sys/block/zram0/reset'; }
-    su -c 'echo 1 > /sys/block/zram0/reset'
+    su -c 'swapoff /dev/block/zram0' || { 
+        echo "Error al desactivar el swap. Intentando forzar...";
+        su -c 'echo 1 > /sys/block/zram0/reset' || { echo "Error crítico: No se pudo resetear zram."; exit 1; }
+    }
+    su -c 'echo 1 > /sys/block/zram0/reset' || { echo "Error crítico: No se pudo resetear zram."; exit 1; }
+
+    # Eliminar el dispositivo zram completamente
+    su -c 'echo 0 > /sys/block/zram0/disksize' || { echo "Error crítico: No se pudo eliminar el dispositivo zram."; exit 1; }
 
     su -c 'sysctl -w vm.swappiness=60'
     su -c 'sysctl -w vm.dirty_background_ratio=10'
