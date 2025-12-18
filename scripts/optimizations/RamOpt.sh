@@ -317,6 +317,10 @@ su -c 'logcat -d | egrep -i "exkernel|flar2|exkernelmanager" | sed -n "1,200p" 2
         echo "[4/6] Ejecutando comprobaciones previas al reinicio (salida en pantalla):"
         ts=$(date '+%F %T')
         echo "===== DIAGNÓSTICO PRE-REBOOT ${ts} ====="
+        echo "--- uname ---"
+        uname -a
+        echo "--- /proc/cmdline ---"
+        su -c 'cat /proc/cmdline' 2>/dev/null || true
         echo "--- free -h ---"
         free -h
         echo "--- /proc/swaps ---"
@@ -325,13 +329,95 @@ su -c 'logcat -d | egrep -i "exkernel|flar2|exkernelmanager" | sed -n "1,200p" 2
         su -c 'ls -la /sys/block | grep zram || echo "(no existe /sys/block/zram*)"'
         echo "--- /sys/block/zram0/disksize ---"
         su -c 'cat /sys/block/zram0/disksize' 2>/dev/null || echo "(no existe)"
-        echo "--- /sys/block/zram0/mem_used_total ---"
-        su -c 'cat /sys/block/zram0/mem_used_total' 2>/dev/null || echo "(no existe)"
-        echo "--- Procesos que referencian ${ZRAM_DEV} (fds, limit 200) ---"
-        su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'" 2>/dev/null || echo "(no se encontraron fds)"
-        echo "--- dmesg (ultimas 80 entradas relacionadas) ---"
-        su -c 'dmesg | egrep -i "zram|swap|swapon|mkswap" | tail -n 80' 2>/dev/null || echo "(no se pudo leer dmesg)"
+        echo "--- /sys/block/zram0 details ---"
+        su -c 'ls -la /sys/block/zram0 2>/dev/null || echo "(no existe /sys/block/zram0)"'
+        echo "--- /sys/block/zram0/* (values) ---"
+        su -c "sh -c 'for f in /sys/block/zram0/* 2>/dev/null; do echo "--- $f ---"; cat \"$f\" 2>/dev/null || echo "(no read)"; done'" 2>/dev/null || true
+        echo "--- /sys/module/zram (module) ---"
+        su -c 'ls -la /sys/module/zram 2>/dev/null || echo "(no existe /sys/module/zram)"'
+        echo "--- /sys/module/zram/parameters ---"
+        su -c "sh -c 'for p in /sys/module/zram/parameters/* 2>/dev/null; do echo "--- /sys/module/zram/parameters/$(basename \$p) ---"; cat \"$p\" 2>/dev/null || echo "(no read)"; done'" 2>/dev/null || true
+        echo "--- modinfo/zramctl if present ---"
+        if command -v zramctl >/dev/null 2>&1; then
+            zramctl -l 2>/dev/null || true
+        fi
+        if command -v modinfo >/dev/null 2>&1; then
+            modinfo zram 2>/dev/null || true
+        fi
+        echo "--- /proc/modules (zram) ---"
+        su -c 'grep -w "zram" /proc/modules 2>/dev/null || echo "(zram no presente en /proc/modules)"'
+        echo "--- Kernel config (check /proc/config.gz) ---"
+        su -c 'zcat /proc/config.gz 2>/dev/null | egrep -i "CONFIG_ZRAM|ZRAM" | sed -n "1,200p" || echo "(no /proc/config.gz)"'
+        echo "--- SELinux AVC related ---"
+        su -c 'dmesg | egrep -i "avc|audit" | egrep -i "zram|zram0|swapon|mkswap" | sed -n "1,200p" 2>/dev/null || true'
+        echo "--- Busqueda de scripts que configuren zram en arranque (rutas comunes) ---"
+        su -c 'grep -R --line-number "zram\|swapon\|mkswap" /init* /system /vendor /data /etc 2>/dev/null | sed -n "1,200p" || echo "(no se encontraron referencias o faltan permisos)"'
+        echo "--- Procesos (ps -A) ---"
+        ps -A 2>/dev/null | sed -n '1,200p' || true
+        echo "--- Procesos que referencian ${ZRAM_DEV} (fds, limit 500) ---"
+        su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,500p'" 2>/dev/null || echo "(no se encontraron fds)"
+        echo "--- fuser/lsof (si disponible) ---"
+        if command -v fuser >/dev/null 2>&1; then
+            su -c "fuser -v /dev/block/zram0 2>/dev/null || true"
+        fi
+        if command -v lsof >/dev/null 2>&1; then
+            su -c "lsof | egrep \"/dev/block/zram0|zram0\" 2>/dev/null | sed -n '1,200p' || true"
+        fi
+        echo "--- dmesg (ultimas 200 entradas relacionadas con zram/swap) ---"
+        su -c 'dmesg | egrep -i "zram|swap|swapon|mkswap" | tail -n 200' 2>/dev/null || echo "(no se pudo leer dmesg)"
         echo "===== FIN DIAGNÓSTICO PRE-REBOOT ====="
+
+        # Preguntar antes de intentar eliminación final del módulo zram
+        echo "\n===== INTENTO FINAL DE ELIMINACIÓN (opcional) ====="
+        echo "Advertencia: intentar remover el módulo zram puede ser riesgoso en algunos kernels."
+        if [ "${FORCE_RMMOD}" = "1" ]; then
+            echo "FORCE_RMMOD=1: procediendo con intento final no interactivo..."
+            do_rmmod=y
+        else
+            read -p "¿Deseas intentar eliminar zram por última vez antes de reiniciar? [y/N]: " do_rmmod
+        fi
+
+        if [ "${do_rmmod}" = "y" ] || [ "${do_rmmod}" = "Y" ]; then
+            echo "[INTENTO] Desactivando swap si existe..."
+            if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
+                su -c "awk 'NR>1 {print \$1}' /proc/swaps 2>/dev/null | while read s; do echo "  swapoff $s"; su -c "swapoff $s" 2>/dev/null || true; done"
+            fi
+            echo "[INTENTO] Reset y set disksize=0..."
+            su -c "echo 1 > ${ZRAM_SYS}/reset" 2>/dev/null || true
+            su -c "echo 0 > ${ZRAM_SYS}/disksize" 2>/dev/null || true
+            sleep 1
+            echo "[INTENTO] Intentando modprobe -r zram..."
+            if su -c "modprobe -r zram" 2>/dev/null; then
+                echo "  modprobe -r funcionó."
+            else
+                echo "  modprobe -r falló o no aplicable. Intentando rmmod..."
+                if su -c "rmmod zram" 2>/dev/null; then
+                    echo "  rmmod funcionó."
+                else
+                    echo "  rmmod falló."
+                    if command -v rmmod >/dev/null 2>&1 && rmmod -? 2>&1 | grep -q -- "-f"; then
+                        echo "  Intentando rmmod -f (FORZAR, puede provocar inestabilidad)..."
+                        if [ "${FORCE_RMMOD}" = "1" ]; then
+                            su -c "rmmod -f zram" 2>/dev/null && echo "  rmmod -f funcionó." || echo "  rmmod -f falló." 
+                        else
+                            read -p "  rmmod -f está disponible. ¿Deseas forzar rmmod -f? [y/N]: " force_k
+                            if [ "${force_k}" = "y" ] || [ "${force_k}" = "Y" ]; then
+                                su -c "rmmod -f zram" 2>/dev/null && echo "  rmmod -f funcionó." || echo "  rmmod -f falló." 
+                            else
+                                echo "  No se forzó rmmod -f."
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+
+            echo "[RESULTADO] Estado después del intento final:"
+            su -c 'cat /sys/block/zram0/disksize 2>/dev/null || echo "(no existe)"'
+            su -c 'grep -w "zram" /proc/modules 2>/dev/null || echo "(zram no presente en /proc/modules)"'
+            echo "(Si sigue presente con disksize>0, puede ser gestionado por el kernel/init y no se puede eliminar sin cambios en boot/kernel.)"
+        else
+            echo "No se intentó eliminación final." 
+        fi
 
         echo "[5/6] Esperando 3 segundos antes de reiniciar..."
         sleep 3
