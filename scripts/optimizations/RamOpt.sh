@@ -65,7 +65,12 @@ elif [ "$opcion" -eq 3 ]; then
 
     echo "[DIAGNÓSTICO] logcat -> últimas entradas relacionadas (si disponible)..."
     su -c 'logcat -d | egrep -i "zram|swap|swapon|mkswap" | sed -n "1,200p" 2>/dev/null || echo "(logcat no disponible o sin coincidencias)"'
-
+# Comprobación adicional para detectar apps que gestionan zram (ej: ExKernelManager)
+echo "[DIAGNÓSTICO] Buscando paquetes y procesos sospechosos (ExKernelManager/"exkernel")..."
+su -c 'pm list packages | egrep "flar2.exkernelmanager|exkernel" 2>/dev/null || echo "(paquete no encontrado)"'
+su -c 'pm path flar2.exkernelmanager 2>/dev/null || true'
+su -c 'ps -A 2>/dev/null | egrep "exkernel|flar2" || true'
+su -c 'logcat -d | egrep -i "exkernel|flar2|exkernelmanager" | sed -n "1,200p" 2>/dev/null || true'
     echo "[DIAGNÓSTICO] /proc/swaps, /sys/block/zram0 y procesos relacionados:"
     su -c 'cat /proc/swaps 2>/dev/null || echo "(no se pudo leer /proc/swaps)"'
     su -c 'ls -la /sys/block | grep zram || echo "(no existe /sys/block/zram*)"'
@@ -194,7 +199,7 @@ elif [ "$opcion" -eq 3 ]; then
 
             # Intentar rmmod -f si está disponible (con advertencia)
             if [ "$removed" -ne 1 ]; then
-                if command -v rmmod >/dev/null 2>&1 && rmmod -? 2>&1 | grep -q "-f"; then
+                if command -v rmmod >/dev/null 2>&1 && rmmod -? 2>&1 | grep -q -- "-f"; then
                     echo "  Intentando rmmod -f zram (FORZAR, puede ser peligroso)..."
                     if su -c "rmmod -f zram" 2>/dev/null; then
                         echo "  rmmod -f funcionó."
@@ -207,11 +212,11 @@ elif [ "$opcion" -eq 3 ]; then
 
             # Si aún no se removió, buscar procesos que mantengan fds y ofrecer terminarlos
             if [ "$removed" -ne 1 ]; then
-                holders=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null || true")
+                holders=$(su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null || true")
                 if [ -n "${holders}" ]; then
                     echo "  Procesos con fds abiertos al dispositivo (muestra limitada):"
-                    su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'"
-                    pids=$(su -c "grep -H \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | awk -F'/' '{print \\$3}' | sort -u" 2>/dev/null || true)
+                    su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | sed -n '1,200p'"
+                    pids=$(su -c "grep -H -- \"${ZRAM_DEV}\" /proc/*/fd 2>/dev/null | awk -F'/' '{print \\$3}' | sort -u" 2>/dev/null || true)
                     for pid in ${pids}; do
                         cmdline=$(su -c "tr '\0' ' ' < /proc/${pid}/cmdline 2>/dev/null || echo '[no access]'" 2>/dev/null || echo '[no access]')
                         echo "    PID: ${pid} - CMD: ${cmdline}"
