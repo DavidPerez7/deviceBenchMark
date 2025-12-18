@@ -54,6 +54,7 @@ elif [ "$opcion" -eq 3 ]; then
 
     ZRAM_DEV="/dev/block/zram0"
     ZRAM_SYS="/sys/block/zram0"
+    can_reboot=1  # Flag para controlar si proceder al reinicio
 
     echo "[1/6] Intentando desactivar swap en ${ZRAM_DEV} (reintentos)..."
     swap_off_success=0
@@ -67,6 +68,11 @@ elif [ "$opcion" -eq 3 ]; then
         sleep 1
     done
 
+    if [ "$swap_off_success" -eq 0 ]; then
+        echo "  Error crítico: No se pudo desactivar swap en ${ZRAM_DEV} después de 5 intentos. Abortando reinicio."
+        can_reboot=0
+    fi
+
     # Comprobar si la entrada de swap sigue en /proc/swaps
     if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
         echo "  Atención: la entrada de swap para ${ZRAM_DEV} sigue presente en /proc/swaps. Intentando desactivar cada entrada de swap..."
@@ -77,23 +83,64 @@ elif [ "$opcion" -eq 3 ]; then
             echo "    No se encontraron entradas en /proc/swaps o no pudo leerse el archivo."
         else
             for sdev in ${swaps_list}; do
-                echo "    Intentando swapoff para ${sdev} (reintentos)..."
+                echo "    Intentando swapoff para ${sdev} (reintentos con diagnóstico)..."
                 sw_ok=0
                 for try in 1 2 3; do
-                    if su -c "swapoff ${sdev}" 2>/dev/null; then
+                    # Intentar swapoff normal y capturar salida de error
+                    err_out=$(su -c "swapoff ${sdev}" 2>&1) || true
+                    if [ -z "${err_out}" ]; then
                         echo "      swapoff ${sdev} OK"
                         sw_ok=1
                         break
                     fi
-                    echo "      swapoff ${sdev} falló (intento ${try}/3). Intentando reset si es zram y esperando 1s..."
+
+                    echo "      swapoff ${sdev} falló (intento ${try}/3): ${err_out}"
+
+                    # Intentar usando toybox o busybox si el comando no existe
+                    if echo "${err_out}" | grep -qi "not found\|no such file or directory\|not recognized"; then
+                        echo "      swapoff parece no estar disponible; probando toybox/busybox..."
+                        for cmd in "toybox" "busybox"; do
+                            if su -c "command -v ${cmd} >/dev/null 2>&1" 2>/dev/null; then
+                                err_alt=$(su -c "${cmd} swapoff ${sdev} 2>&1" 2>/dev/null) || true
+                                if [ -z "${err_alt}" ]; then
+                                    echo "      ${cmd} swapoff ${sdev} OK"
+                                    sw_ok=1
+                                    break 2
+                                else
+                                    echo "      ${cmd} swapoff falló: ${err_alt}"
+                                fi
+                            fi
+                        done
+                    fi
+
+                    # Si es zram, intentar resetear el dispositivo
                     if echo "${sdev}" | grep -q zram; then
                         sname=$(basename "${sdev}")
                         su -c "echo 1 > /sys/block/${sname}/reset" 2>/dev/null || true
+                        echo "      Reseteado ${sname}, esperando 1s y reintentando..."
                     fi
+
                     sleep 1
                 done
+
                 if [ "${sw_ok}" -ne 1 ]; then
-                    echo "      Aviso: No fue posible desactivar swap en ${sdev}. Puede recrearse al reiniciar."
+                    echo "      Aviso: No fue posible desactivar swap en ${sdev}. Recolectando diagnósticos..."
+                    can_reboot=0  # Marcar que no se puede reiniciar
+                    # Volcar diagnósticos útiles al log
+                    LOG="/data/local/tmp/RamOpt.log"
+                    ts=$(date '+%F %T')
+                    su -c "sh -c 'echo "=== ${ts} - swapoff FAILED for ${sdev}" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'echo "error: ${err_out}" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'echo "contents of /proc/swaps:" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'cat /proc/swaps >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                    su -c "sh -c 'echo "ls /sys/block/zram0/ (files):" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'ls -la /sys/block/zram0/ >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                    su -c "sh -c 'echo "dmesg tail:" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'dmesg | tail -n 50 >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                    su -c "sh -c 'echo "open fds referencing ${sdev}:" >> ${LOG}'" 2>/dev/null || true
+                    su -c "sh -c 'grep -H "${sdev}" /proc/*/fd 2>/dev/null | sed -n "1,100p" >> ${LOG}'" 2>/dev/null || true
+
+                    echo "      Ver diagnóstico escrito en ${LOG}. Puedes pegar su contenido si quieres ayuda." 
                 fi
             done
         fi
@@ -112,6 +159,11 @@ elif [ "$opcion" -eq 3 ]; then
         sleep 1
     done
 
+    if [ "$disksize_ok" -eq 0 ]; then
+        echo "  Error crítico: No se pudo setear disksize a 0 después de 3 intentos. Abortando reinicio."
+        can_reboot=0
+    fi
+
     # Verificaciones finales
     disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
     if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
@@ -127,7 +179,8 @@ elif [ "$opcion" -eq 3 ]; then
 
         disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
         if [ "${disksize_val}" != "0" ] && [ "${disksize_val}" != "missing" ]; then
-            echo "  Advertencia: No se pudo eliminar completamente zram. Está en ${disksize_val} bytes; puede ser recreado por el sistema al reiniciar. No se abortará el reinicio para evitar dejar el dispositivo en estado incierto."
+            echo "  Advertencia: No se pudo eliminar completamente zram. Está en ${disksize_val} bytes; puede ser recreado por el sistema al reiniciar."
+            can_reboot=0  # Marcar que no se puede reiniciar
         fi
     fi
 
@@ -147,10 +200,14 @@ elif [ "$opcion" -eq 3 ]; then
     echo "vm.min_free_kbytes: $(su -c 'cat /proc/sys/vm/min_free_kbytes')"
     echo "nr_hugepages: $(su -c 'cat /proc/sys/vm/nr_hugepages')"
 
-    echo "[4/6] Esperando 3 segundos antes de reiniciar..."
-    sleep 3
-    echo "[5/6] Reiniciando el dispositivo..."
-    su -c 'reboot'
+    if [ "$can_reboot" -eq 1 ]; then
+        echo "[4/6] Esperando 3 segundos antes de reiniciar..."
+        sleep 3
+        echo "[5/6] Reiniciando el dispositivo..."
+        su -c 'reboot'
+    else
+        echo "[4/6] Reinicio abortado debido a fallos en la eliminación de swap/zram. Verifica el log en /data/local/tmp/RamOpt.log para más detalles."
+    fi
 
 else
     echo "Opción no válida. Saliendo."
