@@ -1,163 +1,179 @@
-# BatteryOpt: Comandos funcionales, problemas y limitaciones
+# 📱 RedmiOpt: Registro de Desarrollo en Redmi 7 (Lineage OS)
 
-## 1. Permisos y ejecución de scripts
-- Usa siempre `bash script.sh` o `./script.sh` (con shebang correcto) para scripts con sintaxis de bash.
-- Da permisos de ejecución con:
-  ```bash
-  chmod +x script.sh
-  ```
-- Para ejecutar scripts como root en Termux, usa la ruta absoluta de bash:
-  ```bash
-  su -c "/data/data/com.termux/files/usr/bin/bash /data/data/com.termux/files/home/BatteryOpt/mainScripts/setOpt.sh"
-  ```
+¡Bienvenido a mi registro personal de desarrollo de **RedmiOpt**! Aquí documento lo que he aprendido y las experiencias que he tenido desarrollando scripts de optimización para mi Redmi 7 rooteado con Lineage OS. No es una guía general, sino un diario de hallazgos, problemas y soluciones específicas para este dispositivo. 🚀
 
-### Ejemplo de ejecutable para scripts root:
+## 📋 Índice de Experiencias
+- [1. 🔐 Inicio del Proyecto y Permisos](#1-inicio-del-proyecto-y-permisos)
+- [2. 🔑 Root y Configuración Inicial](#2-root-y-configuración-inicial)
+- [3. ⚙️ Comandos que Funcionaron en mi Dispositivo](#3-comandos-que-funcionaron-en-mi-dispositivo)
+- [4. ❌ Problemas y Fallos Encontrados](#4-problemas-y-fallos-encontrados)
+- [5. 📺 Limitaciones de Pantalla en Redmi 7](#5-limitaciones-de-pantalla-en-redmi-7)
+- [6. ✅ Lecciones Aprendidas](#6-lecciones-aprendidas)
+- [7. 🧪 Experiencia con ZRAM y Swap](#7-experiencia-con-zram-y-swap)
+
+---
+
+## 1. 🔐 Inicio del Proyecto y Permisos
+Empecé RedmiOpt para optimizar RAM y swap en mi Redmi 7, pero rápidamente me di cuenta de que necesitaba manejar permisos correctamente. 🔒
+
+- Siempre uso `bash script.sh` para ejecutar scripts, ya que bash soporta funciones avanzadas de programación como bucles, arrays y más, que sh no tiene. No necesito dar permisos de ejecución con `chmod +x` si uso bash directamente.
+- Para root en Termux, uso la ruta absoluta de bash: `su -c "/data/data/com.termux/files/usr/bin/bash script.sh"`, porque el PATH de root no incluye Termux.
+- Creé un ejecutable wrapper para simplificar: `#!/data/data/com.termux/files/usr/bin/bash` seguido de `su -c` para ejecutar scripts completos.
+
+**Lección:** Bash es esencial para scripts complejos; sh limita las funcionalidades.
+
+---
+
+## 2. 🔑 Root y Configuración Inicial
+Rootear el Redmi 7 con Lineage OS fue el primer paso, pero configurar comandos root fue un reto. 🛠️
+
+- `su -c` funciona bien para redirecciones simples como `su -c "echo valor > archivo"`.
+- `tsu` y `tee` no funcionaron en mi setup, así que me quedé con `su -c`.
+- El binario bash de Termux está en `/data/data/com.termux/files/usr/bin/bash`, y root ejecuta en subshells, lo que requiere scripts completos como root.
+
+**Experiencia:** Al principio, comandos individuales fallaban, pero scripts enteros aplicaban cambios. Aprendí a ejecutar todo el script como root.
+
+---
+
+## 3. ⚙️ Comandos que Funcionaron en mi Dispositivo
+Después de pruebas, estos comandos aplicaron cambios en mi Redmi 7. ✅
+
+### 🖥️ CPU:
 ```bash
-#!/data/data/com.termux/files/usr/bin/bash
-su -c "/data/data/com.termux/files/usr/bin/bash /data/data/com.termux/files/home/BatteryOpt/mainScripts/setOpt.sh"
-```
-Así puedes ejecutar el script con solo `./ejecutable.sh`.
-
-### Error común: "bash: inaccessible or not found"
-- Al usar `su -c "bash script.sh"`, puede aparecer el error `/system/bin/sh: bash: inaccessible or not found`.
-- **Causa**: Bajo `su` (root), el PATH no incluye el directorio de binarios de Termux (`/data/data/com.termux/files/usr/bin/`).
-- **Solución**: Siempre usa la ruta absoluta a bash en comandos `su -c`, ej. `su -c "/data/data/com.termux/files/usr/bin/bash script.sh"`.
-- Esto evita que el error se repita en futuros scripts.
-
----
-
-## 2. Root en Termux
-- En este dispositivo, el root funcional es con `su -c` y redirección directa.
-- Ejemplo de uso correcto para redirección:
-  ```bash
-  su -c "echo valor > /ruta/al/archivo"
-  ```
-- El uso de `tsu` y `tee` puede no funcionar correctamente en todos los dispositivos.
-
-### Notas sobre root:
-- El binario bash en Termux está en `/data/data/com.termux/files/usr/bin/bash`.
-- El root por `su -c` ejecuta cada comando en una subshell root, pero el script completo puede requerir ejecutarse como root para aplicar todos los cambios correctamente.
-
----
-
-## 3. SELinux y seguridad
-- Verifica el estado con:
-  ```bash
-  getenforce
-  ```
-- Si está en `Enforcing`, ponlo en `Permissive` (si tu ROM lo permite):
-  ```bash
-  su -c setenforce 0
-  ```
-
-### Notas:
-- SELinux en modo enforcing puede bloquear cambios en governor, frecuencias y otros parámetros, incluso con root.
-
----
-
-## 4. Verificación de rutas y permisos
-- Antes de escribir, verifica que el archivo existe:
-  ```bash
-  ls -l /sys/devices/system/cpu/cpu0/cpufreq/
-  ```
-- Si no existe, revisa la documentación de tu kernel o usa `find` para buscar la ruta correcta.
-
-### Ejemplo para buscar rutas:
-```bash
-find /sys -name "scaling_max_freq"
-```
-Así puedes encontrar la ruta real si tu kernel la mueve.
-
----
-
-## 5. Comandos y configuraciones que funcionan
-
-### Ejemplo de comando funcional para CPU:
-```bash
-su -c "echo 0 > /sys/devices/system/cpu/cpu0/online"
 su -c "echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
 su -c "echo 1363000 > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
 ```
+Afecta al cluster completo (CPUs 0-3).
 
-> **Nota:** Aunque el comando es funcional para cambiar el governor, en la mayoría de dispositivos Android el cambio se aplica a todo el clúster de CPUs al que pertenece el núcleo seleccionado (por ejemplo, CPUs 0-3 o 4-7), no solo al hilo específico. Así, cambiar el governor de cpu0 generalmente afecta a todos los núcleos de ese clúster.
-
-### Ejemplo para GPU:
+### 🎮 GPU:
 ```bash
 su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
 su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
 ```
+Funciona manualmente, pero no siempre desde scripts individuales.
 
-**Nota:** El governor y la frecuencia de la GPU pueden no aplicarse desde scripts con `su -c` en comandos individuales, pero sí funciona si ejecutas el script completo como root.
-
-### Ejemplo para pantalla (resolución y densidad):
+### 📱 Pantalla:
 ```bash
 su -c "wm size 640x1280"
 su -c "wm density 235"
 ```
+Reset con `wm size reset` y `wm density reset`.
 
-Para restablecer valores originales:
-```bash
-su -c "wm size reset"
-su -c "wm density reset"
-```
-
-### Ejemplo para animaciones:
+### 🎨 Animaciones:
 ```bash
 su -c "settings put global window_animation_scale 0.2"
-su -c "settings put global transition_animation_scale 0.2"
-su -c "settings put global animator_duration_scale 0.2"
 ```
+Valores bajos aceleran, pero 0 desactiva.
 
-Valores recomendados: 0 (desactivado), 0.1-0.3 (rápido pero visible), 0.5 (normal), 0.8-1.0 (más lento).
-
----
-
-## 6. Comandos que pueden fallar
-- `declare` solo funciona en bash, no en sh.
-- Redirecciones con `>` dentro de `tsu -c` pueden fallar.
-- Algunos kernels no permiten modificar governors/frecuencias aunque seas root.
-- El governor y la frecuencia de la GPU pueden no aplicarse desde scripts, pero sí manualmente en la terminal. Ejecutar el script completo como root puede ayudar.
-- La frecuencia de refresco de pantalla suele estar fijada por el fabricante y no puede cambiarse con `settings put system peak_refresh_rate` ni otros comandos.
+**Nota:** En mi dispositivo, estos aplican bien con SELinux en Permissive.
 
 ---
 
-## 7. Limitaciones de frecuencia de refresco de pantalla
+## 4. ❌ Problemas y Fallos Encontrados
+Muchos comandos fallaron inicialmente. 🚫
 
-En muchos dispositivos Android, la frecuencia de refresco de pantalla está fijada por el fabricante y no puede cambiarse por comandos (`settings put system peak_refresh_rate`, etc.). Puedes consultar la frecuencia actual con:
+- `declare` no funciona en sh, solo bash.
+- Redirecciones con `tsu -c` fallaban.
+- Los valores de frecuencia de GPU no se colocaban al inicio por falta de permisos (no usaba `su -c`). Además, en mi dispositivo no se puede cambiar la frecuencia directamente a todos los núcleos con un solo comando al cluster; toca hacerlo núcleo por núcleo. El núcleo 0 es como 'rebelde' porque el kernel no hace casi nada y no setea los valores que se indican.
+- Frecuencia de refresco fija por hardware; `settings put system peak_refresh_rate` no cambia nada.
+- Algunos cambios de frecuencia máxima en cluster 0 no se aplicaban realmente, a pesar de no dar error.
+
+**Frustración:** Pasé horas debuggeando por qué comandos no daban error pero no cambiaban nada. Resultado: daemons del sistema o kernel restricciones.
+
+---
+
+## 5. 📺 Limitaciones de Pantalla en Redmi 7
+La pantalla de mi Redmi 7 tiene frecuencia fija. 🔄
+
+- `cat /sys/class/graphics/fb0/modes` muestra solo `U:720x1520p-57`, una frecuencia.
+- No pude cambiarla con comandos; está fijada por el fabricante.
+- Optimización limitada a resolución y DPI.
+
+**Lección:** No perder tiempo en lo que el hardware no permite.
+
+---
+
+## 6. ✅ Lecciones Aprendidas
+Reflexiones después de desarrollar RedmiOpt. 💡
+
+- Siempre prueba manualmente antes de script.
+- Documenta lo que funciona y falla en tu dispositivo específico.
+- Si no da error pero no cambia, revisa SELinux, permisos y kernel.
+- Mantén actualizado este registro con nuevos hallazgos.
+- Para Redmi 7 con Lineage OS, enfócate en lo que el kernel permite.
+
+**Consejo:** Este proyecto me enseñó paciencia; no todo se optimiza igual en todos los dispositivos.
+
+---
+
+## 7. 🧪 Experiencia con ZRAM y Swap
+Esta fue una de las experiencias más frustrantes y educativas en el desarrollo de RedmiOpt. Empezó cuando decidí crear perfiles de optimización para RAM y swap, enfocándome en benchmarks como Antutu para comparar rendimiento con y sin swap activo. 🔄
+
+### Creación Inicial de ZRAM
+Al principio, para probar perfiles de procesamiento intensivo (sin compresión) y compresión (con zram), creé manualmente un dispositivo zram desde Termux. Usé comandos como:
 ```bash
-cat /sys/class/graphics/fb0/modes
+su -c "echo 1 > /sys/block/zram0/reset"
+su -c "echo 512M > /sys/block/zram0/disksize"
+su -c "mkswap /dev/block/zram0"
+su -c "swapon /dev/block/zram0"
+```
+Esto me permitió tener swap comprimido para simular escenarios de baja RAM.
+
+### Problema con ExKernelManager
+Después de instalar ExKernelManager para otras pruebas (como overclocking), noté que recreaba zram automáticamente al arranque. Cuando lo desinstalé para benchmarks limpios, zram seguía apareciendo después de reiniciar. Intenté eliminarlo permanentemente con:
+```bash
+su -c "swapoff /dev/block/zram0"
+su -c "echo 1 > /sys/block/zram0/reset"
+su -c "rmmod zram"
+```
+Pero `rmmod` fallaba con "module zram is builtin", indicando que no era un módulo cargable.
+
+### Investigación en el Kernel
+Profundicé en el problema. Usé `dmesg` para ver logs del kernel:
+```bash
+dmesg | grep -i zram
+```
+Confirmé que zram estaba integrado en el kernel de mi Redmi 7 (4.9.337), con `CONFIG_ZRAM=y` compilado. Esto significa que zram se inicializa automáticamente al arranque y no se puede "eliminar" sin recompilar el kernel o modificar el initramfs.
+
+### Solución: Neutralización en Lugar de Eliminación
+Para benchmarks limpios, aprendí a "neutralizar" zram en lugar de eliminarlo. Poniendo `disksize=0`, el dispositivo queda inactivo, equivalente a no tener swap. Comandos:
+```bash
+su -c "echo 1 > /sys/block/zram0/reset"
+su -c "echo 0 > /sys/block/zram0/disksize"
+su -c "swapoff /dev/block/zram0"
+```
+Verifiqué el estado con:
+- `cat /sys/block/zram0/disksize` (debe ser 0)
+- `cat /proc/swaps` (no debe listar zram0)
+- `free -h` (Swap debe ser 0B)
+
+### Agregando Diagnóstico al Script
+Para asegurar que zram estuviera neutralizado antes de benchmarks, agregué un pre-reboot diagnóstico en RamOpt.sh:
+```bash
+echo "Verificando estado de ZRAM/Swap..."
+uname -a
+free -h
+cat /proc/swaps
+dmesg | egrep -i "zram|swap|swapon|mkswap" | tail -n 10
+```
+Esto me ayudó a confirmar que zram no afectaba los resultados.
+
+### Recomendación de Neutralizador en Arranque
+Para persistencia, recomendé instalar un script neutralizador que se ejecute muy temprano en el arranque, antes de que cualquier app o daemon active zram. Esto se puede hacer con Termux:Boot o editando init.d/service.d.
+
+**Ejemplo de script neutralizador (early-boot):**
+```sh
+#!/system/bin/sh
+Z=/sys/block/zram0
+if [ -e "$Z" ]; then
+  echo 1 > $Z/reset 2>/dev/null || true
+  echo 0 > $Z/disksize 2>/dev/null || true
+  [ -e /dev/block/zram0 ] && swapoff /dev/block/zram0 2>/dev/null || true
+fi
 ```
 
-Si solo aparece un valor (por ejemplo, `U:720x1520p-57`), esa es la única frecuencia soportada por hardware/firmware.
-
-**Conclusión:**
-La optimización de pantalla se limita a resolución y densidad (DPI). La tasa de refresco solo puede cambiarse si el fabricante/ROM lo permite.
+**Lección:** Zram es útil para optimización, pero para benchmarks comparables, neutralizarlo es clave. No siempre se puede eliminar todo; a veces, la solución es adaptar. Esto me enseñó sobre la integración profunda del kernel en Android y la importancia de verificación post-cambio.
 
 ---
 
-## 8. Limitaciones del cambio de frecuencia máxima en cluster 0
-
-En algunos dispositivos Android, aunque tengas permisos root y el comando `su -c "echo valor > /sys/devices/system/cpu/cpuX/cpufreq/scaling_max_freq"` no muestre error, la frecuencia máxima del cluster 0 (por ejemplo, CPUs 0-3) puede no cambiar realmente. Esto se debe a:
-
-- Restricciones del kernel o de la ROM, que bloquean cambios en ciertas frecuencias por seguridad.
-- Daemons del sistema (como thermal, powerd, etc.) que restablecen la frecuencia automáticamente.
-- SELinux en modo enforcing, que puede bloquear cambios incluso con root.
-
-Herramientas como EX Kernel Manager pueden cambiar la frecuencia máxima porque:
-- Usan un daemon propio con permisos root persistentes otorgados por Magisk desde el arranque.
-- Pueden aplicar parches adicionales al kernel o a SELinux.
-
-**Conclusión:**
-No es un fallo del script, sino una limitación del kernel/ROM. El script funciona para lo que permite el sistema con root estándar. Si necesitas cambiar la frecuencia máxima del cluster 0, deberás usar herramientas avanzadas como EX Kernel Manager con Magisk y su daemon, lo cual está fuera del alcance de este proyecto.
-
----
-
-## 9. Recomendaciones generales
-- Siempre prueba comandos manualmente antes de automatizarlos en scripts.
-- Documenta los comandos que funcionan y los que no, según tu dispositivo y ROM.
-- Si un comando no da error pero no aplica el cambio, revisa permisos, SELinux y compatibilidad del kernel.
-- Mantén este documento actualizado con cada hallazgo nuevo.
-
----
-
-**Actualiza este documento cada vez que encuentres un comando útil, una limitación o un problema nuevo.**
+**Actualiza este registro con cada nueva experiencia en RedmiOpt.** 🎉

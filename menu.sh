@@ -4,8 +4,8 @@
 echo '= OTORGANDO PERMISOS DE EJECUCION ='
 DIR=$(pwd)
 chmod +x "$DIR/scripts/battery.sh"
-chmod +x "$DIR/scripts/setopt.sh"
-echo "Permisos de ejecución otorgados (battery.sh, setopt.sh)."
+chmod +x "$DIR/scripts/opt.sh"
+echo "Permisos de ejecución otorgados (battery.sh, opt.sh)."
 
 declare opcion
 echo "Seleccione una opción:"
@@ -21,6 +21,6 @@ fi
 
 if [ "$opcion" -eq 2 ]; then
     # Ejecuta el script de configuración de optimizaciones
-    su -c "/data/data/com.termux/files/usr/bin/bash \"$DIR/scripts/setopt.sh\""
+    su -c "/data/data/com.termux/files/usr/bin/bash \"$DIR/scripts/opt.sh\""
     exit 0
 fi
