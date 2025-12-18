@@ -4,12 +4,13 @@
 
 ## 📋 Índice de Experiencias
 - [1. 🔐 Inicio del Proyecto y Permisos](#1-inicio-del-proyecto-y-permisos)
-- [2. 🔑 Root y Configuración Inicial](#2-root-y-configuración-inicial)
-- [3. ⚙️ Comandos que Funcionaron en mi Dispositivo](#3-comandos-que-funcionaron-en-mi-dispositivo)
-- [4. ❌ Problemas y Fallos Encontrados](#4-problemas-y-fallos-encontrados)
-- [5. 📺 Limitaciones de Pantalla en Redmi 7](#5-limitaciones-de-pantalla-en-redmi-7)
-- [6. ✅ Lecciones Aprendidas](#6-lecciones-aprendidas)
-- [7. 🧪 Experiencia con ZRAM y Swap](#7-experiencia-con-zram-y-swap)
+- [2. 📈 Resultados de Benchmarks](#2-resultados-de-benchmarks)
+- [3. 🔑 Root y Configuración Inicial](#3-root-y-configuración-inicial)
+- [4. ⚙️ Comandos que Funcionaron en mi Dispositivo](#4-comandos-que-funcionaron-en-mi-dispositivo)
+- [5. ❌ Problemas y Fallos Encontrados](#5-problemas-y-fallos-encontrados)
+- [6. 📺 Limitaciones de Pantalla en Redmi 7](#6-limitaciones-de-pantalla-en-redmi-7)
+- [7. ✅ Lecciones Aprendidas](#7-lecciones-aprendidas)
+- [8. 🧪 Experiencia con ZRAM y Swap](#8-experiencia-con-zram-y-swap)
 
 ---
 
@@ -24,7 +25,28 @@ Empecé RedmiOpt para optimizar RAM y swap en mi Redmi 7, pero rápidamente me d
 
 ---
 
-## 2. 🔑 Root y Configuración Inicial
+## 2. 📈 Resultados de Benchmarks
+Para contextualizar el rendimiento de mi Redmi 7, comparé benchmarks antes y después de modificaciones.
+
+### Benchmark 1: De Fábrica (Sin Root ni Modificaciones)
+- Puntuación promedio en Antutu Benchmark: 125.000 pts (según datos de internet).
+- Nota: No pude probar esto directamente cuando tenía el celular de fábrica, ya que no lo hice en ese momento.
+
+### Benchmark 2: Después de Root con Magisk y Lineage OS Fresco
+- Puntuación en Antutu Benchmark: 185.196 pts totales.
+  - CPU: 76k
+  - GPU: 17k
+  - Memoria: 47k
+  - UX: 42k
+- Temperatura inicial: 37°C, bajó 2.4°C durante todo el benchmark.
+- Batería descargada: Solo un 5%.
+- Nota: Como tenía valores de fábrica, venía con resolución de 720x1520 px, animaciones completas (escala 1), governors normales en schedutil, todo sin optimizaciones adicionales de RedmiOpt.
+
+Esto muestra una mejora significativa solo con el root y ROM custom, antes de aplicar optimizaciones adicionales con RedmiOpt.
+
+---
+
+## 3. 🔑 Root y Configuración Inicial
 Rootear el Redmi 7 con Lineage OS fue el primer paso, pero configurar comandos root fue un reto. 🛠️
 
 - `su -c` funciona bien para redirecciones simples como `su -c "echo valor > archivo"`.
@@ -35,7 +57,7 @@ Rootear el Redmi 7 con Lineage OS fue el primer paso, pero configurar comandos r
 
 ---
 
-## 3. ⚙️ Comandos que Funcionaron en mi Dispositivo
+## 4. ⚙️ Comandos que Funcionaron en mi Dispositivo
 Después de pruebas, estos comandos aplicaron cambios en mi Redmi 7. ✅
 
 ### 🖥️ CPU:
@@ -69,7 +91,7 @@ Valores bajos aceleran, pero 0 desactiva.
 
 ---
 
-## 4. ❌ Problemas y Fallos Encontrados
+## 5. ❌ Problemas y Fallos Encontrados
 Muchos comandos fallaron inicialmente. 🚫
 
 - `declare` no funciona en sh, solo bash.
@@ -82,7 +104,7 @@ Muchos comandos fallaron inicialmente. 🚫
 
 ---
 
-## 5. 📺 Limitaciones de Pantalla en Redmi 7
+## 6. 📺 Limitaciones de Pantalla en Redmi 7
 La pantalla de mi Redmi 7 tiene frecuencia fija. 🔄
 
 - `cat /sys/class/graphics/fb0/modes` muestra solo `U:720x1520p-57`, una frecuencia.
@@ -93,7 +115,7 @@ La pantalla de mi Redmi 7 tiene frecuencia fija. 🔄
 
 ---
 
-## 6. ✅ Lecciones Aprendidas
+## 7. ✅ Lecciones Aprendidas
 Reflexiones después de desarrollar RedmiOpt. 💡
 
 - Siempre prueba manualmente antes de script.
@@ -106,7 +128,7 @@ Reflexiones después de desarrollar RedmiOpt. 💡
 
 ---
 
-## 7. 🧪 Experiencia con ZRAM y Swap
+## 8. 🧪 Experiencia con ZRAM y Swap
 Esta fue una de las experiencias más frustrantes y educativas en el desarrollo de RedmiOpt. Empezó cuando decidí crear perfiles de optimización para RAM y swap, enfocándome en benchmarks como Antutu para comparar rendimiento con y sin swap activo. 🔄
 
 ### Creación Inicial de ZRAM

@@ -2,18 +2,54 @@
 
 # Configuración rápida de CPU
 # CPU 0-3 (cluster 1): powersave, 1363 MHz, 4/4 núcleos
-echo "====================================="
-echo "== CONFIGURACION DE OPTIMIZACIONES =="
-echo "====================================="
+sleep 1
+echo "██████╗ ███████╗██████╗ ███╗   ███╗██╗           ██████╗ ██████╗ ████████╗"
+echo "██╔══██╗██╔════╝██╔══██╗████╗ ████║██║          ██╔═══██╗██╔══██╗╚══██╔══╝"
+echo "██████╔╝█████╗  ██║  ██║██╔████╔██║██║    █████╗██║   ██║██████╔╝   ██║   "
+echo "██╔══██╗██╔══╝  ██║  ██║██║╚██╔╝██║██║    ╚════╝██║   ██║██╔═══╝    ██║   "
+echo "██║  ██║███████╗██████╔╝██║ ╚═╝ ██║██║          ╚██████╔╝██║        ██║   "
+echo "╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝     ╚═╝╚═╝           ╚═════╝ ╚═╝        ╚═╝   "
+echo ""
+sleep 1
+echo "==============================="
+echo "Valores actuales del sistema:"
+echo "==============================="
+echo "Governor CPU0: $(su -c 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor')"
+echo "Governor CPU4: $(su -c 'cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor')"
+echo "Frecuencia mínima CPU0: $(su -c 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq')"
+echo "Frecuencia mínima CPU4: $(su -c 'cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq')"
+echo "Frecuencia máxima CPU0: $(su -c 'cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq')"
+echo "Frecuencia máxima CPU4: $(su -c 'cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq')"
+echo "==============================="
+echo "Núcleos activos: $(su -c 'cat /sys/devices/system/cpu/online')"
+echo "==============================="
+echo "Governor GPU: $(su -c 'cat /sys/class/kgsl/kgsl-3d0/devfreq/governor')"
+echo "Frecuencia mínima GPU: $(su -c 'cat /sys/class/kgsl/kgsl-3d0/devfreq/min_freq')"
+echo "Frecuencia máxima GPU: $(su -c 'cat /sys/class/kgsl/kgsl-3d0/devfreq/max_freq')"
+echo "==============================="
+echo "Latencia del scheduler: $(su -c 'sysctl kernel.sched_latency_ns')"
+echo "Granularidad mínima del scheduler: $(su -c 'sysctl kernel.sched_min_granularity_ns')"
+echo "Granularidad de wakeup del scheduler: $(su -c 'sysctl kernel.sched_wakeup_granularity_ns')"
+echo "==============================="
+echo "Resolución actual: $(su -c 'wm size')"
+echo "DPI actual: $(su -c 'wm density')"
+echo "==============================="
+echo ""
 sleep 1
 
 declare opcion
-echo "Elgina un perfil de optimizacion de CPU:"
-echo "1. 🔴 AHORRO EXTREMO (4 nucleos - GPU a 400MHz - resolucion 560x1000, 170dpi)"
-echo "2. 🟡 AHORRO NORMAL (6 nucleos activos a 1536 y 1401 MHz)"
-echo "3. 🟢 RENDIMIENTO MAXIMO (8 nucleos activos a 1804MHz)"
+echo "🚀 Elige un perfil de optimización de CPU para Redmi 7:"
+echo ""
+echo "1. 🔴 AHORRO EXTREMO (4 núcleos - GPU a 400MHz - resolución 560x1000, 170dpi)"
+echo "2. 🟡 AHORRO NORMAL (6 núcleos activos a 1536 y 1401 MHz)"
+echo "3. 🟢 RENDIMIENTO MÁXIMO (8 núcleos activos a 1804MHz)"
 echo "4. 🔄 VALORES DE FÁBRICA (schedutil, resolución y animaciones predeterminadas)"
+echo ""
+echo "Ingresa el número de opción (1-4):"
 read opcion
+
+
+sleep 1
 
 # -- PERFIL 1: EXTREMO
 if [ "$opcion" -eq 1 ]; then
@@ -50,7 +86,7 @@ if [ "$opcion" -eq 1 ]; then
     sleep 1
     su -c  wm size 560x1000
     su -c  wm density 170
-    echo "Screen: 560x1230, 160dpi"
+    echo "Screen: 560x1000, 170dpi"
 
     echo "Desactivando animaciones..."
     sleep 1
@@ -96,7 +132,6 @@ elif [ "$opcion" -eq 2 ]; then
     su -c "settings put global animator_duration_scale 0.2"
 
 # -- PERFIL 3: RENDIMIENTO MAXIMO
-
 elif [ "$opcion" -eq 3 ]; then
     echo "Activando todos los nucleos..."
     sleep 1
@@ -122,12 +157,20 @@ elif [ "$opcion" -eq 3 ]; then
 
     echo "Configurando pantalla y animaciones..."
     sleep 1
-    su -c  wm size 640x1280
-    su -c  wm density 235
+    su -c  wm size 640x1360
+    su -c  wm density 200
 
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
+
+    echo "Configurando ajustes del scheduler..."
+    su -c "sysctl -w kernel.sched_latency_ns=9000000"
+    su -c "sysctl -w kernel.sched_min_granularity_ns=1500000"
+    su -c "sysctl -w kernel.sched_wakeup_granularity_ns=1900000"
+    echo "Latencia: 9ms, Granularidad mínima: 1.5ms, Wakeup: 1.9ms configurados."
+    sleep 1
+
 
 # -- PERFIL 4: VALORES DE FÁBRICA
 elif [ "$opcion" -eq 4 ]; then
