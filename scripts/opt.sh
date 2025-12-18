@@ -44,6 +44,12 @@ echo "Limite termal/energetico GPU (Thermal power level): $(su -c 'cat /sys/clas
 echo "==============================="
 echo "Estadísticas de I/O del almacenamiento: $(su -c 'cat /sys/block/mmcblk0/queue/iostats')"
 echo "==============================="
+echo "CPUs asignados a top-app: $(su -c 'cat /dev/cpuset/top-app/cpus')"
+echo "CPUs asignados a background: $(su -c 'cat /dev/cpuset/background/cpus')"
+echo "CPUs asignados a system-background: $(su -c 'cat /dev/cpuset/system-background/cpus')"
+echo "CPUs asignados a restricted: $(su -c 'cat /dev/cpuset/restricted/cpus')"
+echo "CPUs asignados a foreground: $(su -c 'cat /dev/cpuset/foreground/cpus')"
+echo "==============================="
 echo ""
 sleep 1
 
@@ -191,6 +197,15 @@ elif [ "$opcion" -eq 3 ]; then
     echo "Configurando estadísticas de I/O del almacenamiento..."
     su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
     echo "Estadísticas de I/O desactivadas."
+    sleep 1
+
+    echo "Configurando cpusets para rendimiento máximo..."
+    su -c "echo 0-7 > /dev/cpuset/top-app/cpus"
+    su -c "echo 0-1 > /dev/cpuset/background/cpus"
+    su -c "echo 0-3 > /dev/cpuset/system-background/cpus"
+    su -c "echo 0-2 > /dev/cpuset/restricted/cpus"
+    su -c "echo 0-5 > /dev/cpuset/foreground/cpus"
+    echo "Cpusets configurados para rendimiento máximo."
     sleep 1
 
 
