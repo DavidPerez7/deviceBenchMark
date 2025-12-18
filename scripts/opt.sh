@@ -38,6 +38,10 @@ echo "Escala de animación de ventana: $(su -c 'settings get global window_anima
 echo "Escala de animación de transición: $(su -c 'settings get global transition_animation_scale')"
 echo "Escala de duración del animador: $(su -c 'settings get global animator_duration_scale')"
 echo "==============================="
+echo "Daemon termico (Thermal-engine): $(su -c 'pidof thermal-engine')"
+echo "Proteccion termal (Modulo de Kernel Thermal enabled): $(su -c 'cat /sys/module/msm_thermal/parameters/enabled')"
+echo "Limite termal/energetico GPU (Thermal power level): $(su -c 'cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel')"
+echo "==============================="
 echo ""
 sleep 1
 
