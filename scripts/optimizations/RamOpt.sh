@@ -169,23 +169,32 @@ elif [ "$opcion" -eq 3 ]; then
     done
 
     if [ "$disksize_ok" -eq 0 ]; then
-        echo "  Error crítico: No se pudo setear disksize a 0 después de 5 intentos. Abortando reinicio."
-        can_reboot=0
+        echo "  Advertencia: No se pudo setear disksize a 0 directamente, pero verificaremos el estado final."
     fi
 
     # Verificaciones finales
     disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
     if [ "${disksize_val}" = "0" ] || [ "${disksize_val}" = "missing" ]; then
-        echo "  Dispositivo zram ahora en 0B (o innexistente): ${disksize_val}"
-    else
-        echo "  No se consiguió dejar disksize a 0 (valor: ${disksize_val}). Intentando remover el módulo zram..."
-        # Intentar quitar el módulo zram directamente (ya que lsmod no está disponible)
-        su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido." || echo "  No fue posible remover el módulo zram."
-
+        echo "  Dispositivo zram en 0B o inexistente: ${disksize_val}. Intentando remover módulo para eliminación completa..."
+        su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido exitosamente." || echo "  No se pudo remover módulo zram (puede estar en uso)."
+        # Verificar si se eliminó
         disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
-        if [ "${disksize_val}" != "0" ] && [ "${disksize_val}" != "missing" ]; then
-            echo "  Advertencia: No se pudo eliminar completamente zram. Está en ${disksize_val} bytes; puede ser recreado por el sistema al reiniciar."
-            can_reboot=0  # Marcar que no se puede reiniciar
+        if [ "${disksize_val}" = "missing" ]; then
+            echo "  Dispositivo zram eliminado completamente."
+        else
+            echo "  Dispositivo zram aún presente (disksize: ${disksize_val})."
+        fi
+    else
+        echo "  Dispositivo zram aún activo (disksize: ${disksize_val}). Intentando reset y rmmod..."
+        su -c "echo 1 > ${ZRAM_SYS}/reset" 2>/dev/null || true
+        sleep 1
+        su -c "rmmod zram" 2>/dev/null && echo "  Módulo zram removido después de reset." || echo "  No se pudo remover módulo zram."
+        disksize_val=$(su -c "cat ${ZRAM_SYS}/disksize" 2>/dev/null || echo "missing")
+        if [ "${disksize_val}" = "missing" ]; then
+            echo "  Dispositivo zram eliminado."
+        else
+            echo "  Error: No se pudo eliminar zram completamente. Abortando reinicio."
+            can_reboot=0
         fi
     fi
 
