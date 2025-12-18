@@ -56,68 +56,67 @@ elif [ "$opcion" -eq 3 ]; then
     ZRAM_SYS="/sys/block/zram0"
     can_reboot=1  # Flag para controlar si proceder al reinicio
 
-    echo "[1/6] Intentando desactivar swap en ${ZRAM_DEV} (reintentos)..."
-    swap_off_success=0
-    for i in 1 2 3 4 5; do
-        if su -c "swapoff ${ZRAM_DEV}" 2>/dev/null; then
-            swap_off_success=1
-            break
-        fi
-        echo "  swapoff falló, intento ${i}/5 - intentando resetear zram y esperar 1s..."
-        su -c "echo 1 > ${ZRAM_SYS}/reset" 2>/dev/null || true
-        sleep 1
-    done
-
-    if [ "$swap_off_success" -eq 0 ]; then
-        echo "  Error crítico: No se pudo desactivar swap en ${ZRAM_DEV} después de 5 intentos. Abortando reinicio."
-        can_reboot=0
-    fi
-
-    # Comprobar si la entrada de swap sigue en /proc/swaps
+    # Comprobar si el dispositivo aparece en /proc/swaps; si no, no es necesario swapoff
+    echo "[1/6] Comprobando /proc/swaps para ${ZRAM_DEV}..."
     if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
-        echo "  Atención: la entrada de swap para ${ZRAM_DEV} sigue presente en /proc/swaps. Intentando desactivar cada entrada de swap..."
+        echo "  Entrada de swap encontrada para ${ZRAM_DEV}; intentando desactivar (reintentos)..."
+        swap_off_success=0
+        for i in 1 2 3 4 5; do
+            err_out=$(su -c "swapoff ${ZRAM_DEV}" 2>&1) || true
+            if [ -z "${err_out}" ]; then
+                swap_off_success=1
+                break
+            fi
+            echo "  swapoff falló, intento ${i}/5: ${err_out} - intentando resetear zram y esperar 1s..."
+            su -c "echo 1 > ${ZRAM_SYS}/reset" 2>/dev/null || true
+            sleep 1
+        done
 
-        # Leer las entradas de /proc/swaps (omitimos la cabecera)
-        swaps_list=$(awk 'NR>1 {print $1}' /proc/swaps 2>/dev/null || true)
-        if [ -z "${swaps_list}" ]; then
-            echo "    No se encontraron entradas en /proc/swaps o no pudo leerse el archivo."
+        # Si sigue presente en /proc/swaps, intentar desactivar otras entradas individualmente
+        if su -c "grep -q \"${ZRAM_DEV}\" /proc/swaps" 2>/dev/null; then
+            echo "  La entrada de ${ZRAM_DEV} sigue en /proc/swaps tras intentos; desactivando entradas listadas en /proc/swaps..."
+            swaps_list=$(awk 'NR>1 {print $1}' /proc/swaps 2>/dev/null || true)
+            if [ -z "${swaps_list}" ]; then
+                echo "    No se encontraron entradas en /proc/swaps o no pudo leerse el archivo."
+            else
+                for sdev in ${swaps_list}; do
+                    echo "    Intentando swapoff para ${sdev} (3 reintentos)..."
+                    sw_ok=0
+                    for try in 1 2 3; do
+                        err_out=$(su -c "swapoff ${sdev}" 2>&1) || true
+                        if [ -z "${err_out}" ]; then
+                            sw_ok=1
+                            break
+                        fi
+                        echo "      swapoff ${sdev} falló (intento ${try}/3): ${err_out}"
+                        if echo "${sdev}" | grep -q zram; then
+                            sname=$(basename "${sdev}")
+                            su -c "echo 1 > /sys/block/${sname}/reset" 2>/dev/null || true
+                            echo "      Reseteado ${sname}, esperando 1s..."
+                        fi
+                        sleep 1
+                    done
+                    if [ "${sw_ok}" -ne 1 ]; then
+                        echo "      No fue posible desactivar swap en ${sdev}; recolectando diagnósticos y abortando reinicio."
+                        can_reboot=0
+                        LOG="/data/local/tmp/RamOpt.log"
+                        ts=$(date '+%F %T')
+                        su -c "sh -c 'echo "=== ${ts} - swapoff FAILED for ${sdev}" >> ${LOG}'" 2>/dev/null || true
+                        su -c "sh -c 'echo "error: ${err_out}" >> ${LOG}'" 2>/dev/null || true
+                        su -c "sh -c 'cat /proc/swaps >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                        su -c "sh -c 'ls -la /sys/block/zram0/ >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                        su -c "sh -c 'dmesg | tail -n 50 >> ${LOG} 2>/dev/null'" 2>/dev/null || true
+                        su -c "sh -c 'grep -H "${sdev}" /proc/*/fd 2>/dev/null | sed -n "1,100p" >> ${LOG}'" 2>/dev/null || true
+                        echo "      Diagnóstico guardado en ${LOG}."
+                    fi
+                done
+            fi
         else
-            for sdev in ${swaps_list}; do
-                echo "    Intentando swapoff para ${sdev} (reintentos con diagnóstico)..."
-                sw_ok=0
-                for try in 1 2 3; do
-                    # Intentar swapoff normal y capturar salida de error
-                    err_out=$(su -c "swapoff ${sdev}" 2>&1) || true
-                    if [ -z "${err_out}" ]; then
-                        echo "      swapoff ${sdev} OK"
-                        sw_ok=1
-                        break
-                    fi
-
-                    echo "      swapoff ${sdev} falló (intento ${try}/3): ${err_out}"
-
-                    # Intentar usando toybox o busybox si el comando no existe
-                    if echo "${err_out}" | grep -qi "not found\|no such file or directory\|not recognized"; then
-                        echo "      swapoff parece no estar disponible; probando toybox/busybox..."
-                        for cmd in "toybox" "busybox"; do
-                            if su -c "command -v ${cmd} >/dev/null 2>&1" 2>/dev/null; then
-                                err_alt=$(su -c "${cmd} swapoff ${sdev} 2>&1" 2>/dev/null) || true
-                                if [ -z "${err_alt}" ]; then
-                                    echo "      ${cmd} swapoff ${sdev} OK"
-                                    sw_ok=1
-                                    break 2
-                                else
-                                    echo "      ${cmd} swapoff falló: ${err_alt}"
-                                fi
-                            fi
-                        done
-                    fi
-
-                    # Si es zram, intentar resetear el dispositivo
-                    if echo "${sdev}" | grep -q zram; then
-                        sname=$(basename "${sdev}")
-                        su -c "echo 1 > /sys/block/${sname}/reset" 2>/dev/null || true
-                        echo "      Reseteado ${sname}, esperando 1s y reintentando..."
+            echo "  swapoff OK (entrada removida de /proc/swaps)."
+        fi
+    else
+        echo "  No hay entrada de swap para ${ZRAM_DEV} en /proc/swaps; omitiendo swapoff."
+    fi
                     fi
 
                     sleep 1
