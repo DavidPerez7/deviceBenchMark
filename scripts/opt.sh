@@ -39,8 +39,10 @@ echo "Escala de animación de transición: $(su -c 'settings get global transiti
 echo "Escala de duración del animador: $(su -c 'settings get global animator_duration_scale')"
 echo "==============================="
 echo "Daemon termico (Thermal-engine): $(su -c 'pidof thermal-engine')"
-echo "Proteccion termal (Modulo de Kernel Thermal enabled): $(su -c 'cat /sys/module/msm_thermal/parameters/enabled')"
+# echo "Proteccion termal (Modulo de Kernel Thermal enabled): $(su -c 'cat /sys/module/msm_thermal/parameters/enabled')" NO HAY EN REDMI 7
 echo "Limite termal/energetico GPU (Thermal power level): $(su -c 'cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel')"
+echo "==============================="
+echo "Estadísticas de I/O del almacenamiento: $(su -c 'cat /sys/block/mmcblk0/queue/iostats')"
 echo "==============================="
 echo ""
 sleep 1
@@ -165,8 +167,8 @@ elif [ "$opcion" -eq 3 ]; then
 
     echo "Configurando pantalla y animaciones..."
     sleep 1
-    su -c  wm size 640x1360
-    su -c  wm density 200
+    su -c  wm size 540x1140
+    su -c  wm density 210
 
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
@@ -177,6 +179,18 @@ elif [ "$opcion" -eq 3 ]; then
     su -c "sysctl -w kernel.sched_min_granularity_ns=1500000"
     su -c "sysctl -w kernel.sched_wakeup_granularity_ns=1900000"
     echo "Latencia: 9ms, Granularidad mínima: 1.5ms, Wakeup: 1.9ms configurados."
+    sleep 1
+
+    echo "Desactivando protección térmica..."
+    su -c "stop thermal-engine"
+    su -c "stop thermald" 2>/dev/null
+    su -c "echo 0 > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 2>/dev/null
+    echo "Protección térmica desactivada."
+    sleep 1
+
+    echo "Configurando estadísticas de I/O del almacenamiento..."
+    su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
+    echo "Estadísticas de I/O desactivadas."
     sleep 1
 
 
