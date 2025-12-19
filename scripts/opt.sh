@@ -70,8 +70,8 @@ sleep 1
 # -- PERFIL 1: EXTREMO
 if [ "$opcion" -eq 1 ]; then
     echo "Apagando nucleos..."
-    sleep 1
-    for cpu in 1 2 3 7; do
+    sleep 2
+    for cpu in 1 2 3; do
         su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
@@ -101,9 +101,9 @@ if [ "$opcion" -eq 1 ]; then
     done
 
     echo "Configurando GPU..."
-    sleep 2
+    sleep 1
     su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
-    sleep 2
+    sleep 1
     # Setear max_freq si existe
     if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"; then
         su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
@@ -159,36 +159,105 @@ if [ "$opcion" -eq 1 ]; then
 # -- OPCION 2
 elif [ "$opcion" -eq 2 ]; then
     echo "= APAGANDO NUCLEOS ="
-    for cpu in 3 7; do
-    su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
+    sleep 1
+    for cpu in 7; do
+        su -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: offline"
     done
+    sleep 1
     echo "= CLUSTER 1 ="
-    for cpu in 0 1 2; do
-    su -c "echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-    su -c "echo 1536000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-    su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
-        echo "CPU$cpu: powersave, 1536MHz, online"
+    # Consultar frecuencias disponibles para cluster 1 (CPU 0)
+    available_freqs=$(su -c "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies")
+    sorted_freqs=$(echo $available_freqs | tr ' ' '\n' | sort -n)
+    max_freq_cluster1=$(echo $sorted_freqs | awk '{print $(NF-1)}')  # Segunda más alta
+    min_freq_cluster1=$(echo $sorted_freqs | awk '{print $1}')
+    for cpu in 0 1 2 3; do
+        su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        sleep 1
+        su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        sleep 1
+        su -c "echo $max_freq_cluster1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        sleep 1
+        su -c "echo $min_freq_cluster1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+        sleep 1
+        echo "CPU$cpu: conservative, $(($max_freq_cluster1 / 1000))MHz, online"
     done
     echo "= CLUSTER 2 ="
+    # Consultar frecuencias disponibles para cluster 2 (CPU 4)
+    available_freqs=$(su -c "cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_available_frequencies")
+    sorted_freqs=$(echo $available_freqs | tr ' ' '\n' | sort -n)
+    max_freq_cluster2=$(echo $sorted_freqs | awk '{print $(NF-1)}')  # Segunda más alta
+    min_freq_cluster2=$(echo $sorted_freqs | awk '{print $1}')
     for cpu in 4 5 6; do
-    su -c "echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-    su -c "echo 1401000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-    su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
-        echo "CPU$cpu: powersave, 1401MHz, online"
+        su -c "echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        sleep 1
+        su -c "echo $max_freq_cluster2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        sleep 1
+        su -c "echo $min_freq_cluster2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+        sleep 1
+        echo "CPU$cpu: powersave, $(($max_freq_cluster2 / 1000))MHz, online"
     done
     
     echo "= GPU ="
-    su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
-    su -c "echo 560000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+    sleep 1
+    su -c "echo conservative > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
+    sleep 1
+    # Setear max_freq si existe
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"; then
+        su -c "echo 600000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+        sleep 1
+    fi
+    # Setear min_freq si existe
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"; then
+        min_gpu_freq=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/cpuinfo_min_freq" 2>/dev/null)
+        if [ -z "$min_gpu_freq" ]; then
+            min_gpu_freq=257000000
+        fi
+        su -c "echo $min_gpu_freq > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
+        sleep 1
+    fi
+    echo "GPU: conservative, 600MHz, configurada."
 
     echo "= PANTALLA Y ANIMACIONES ="
-    su -c  wm size reset  # para el redmi 7 es 720x1520
-    su -c  wm density 265
+    sleep 1
+    su -c "wm size 720x1520"
+    sleep 1
+    su -c "wm density 280"
+    sleep 1
+    su -c "settings put global window_animation_scale 0.3"
+    sleep 1
+    su -c "settings put global transition_animation_scale 0.3"
+    sleep 1
+    su -c "settings put global animator_duration_scale 0.3"
+    sleep 1
 
-    su -c "settings put global window_animation_scale 0.2"
-    su -c "settings put global transition_animation_scale 0.2"
-    su -c "settings put global animator_duration_scale 0.2"
+    echo "Configurando ajustes del scheduler para balance..."
+    su -c "sysctl -w kernel.sched_latency_ns=10000000"
+    sleep 1
+    su -c "sysctl -w kernel.sched_min_granularity_ns=2000000"
+    sleep 1
+    su -c "sysctl -w kernel.sched_wakeup_granularity_ns=2500000"
+    echo "Latencia: 10ms, Granularidad mínima: 2ms, Wakeup: 2.5ms configurados."
+    sleep 1
+
+    echo "Configurando cpusets para balance..."
+    su -c "echo 0-5 > /dev/cpuset/top-app/cpus"
+    sleep 1
+    su -c "echo 0-2 > /dev/cpuset/background/cpus"
+    sleep 1
+    su -c "echo 0-2 > /dev/cpuset/system-background/cpus"
+    sleep 1
+    su -c "echo 0-1 > /dev/cpuset/restricted/cpus"
+    sleep 1
+    su -c "echo 0-4 > /dev/cpuset/foreground/cpus"
+    echo "Cpusets configurados para balance."
+    sleep 1
+
+    echo "Configurando estadísticas de I/O del almacenamiento..."
+    su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
+    echo "Estadísticas de I/O desactivadas."
+    sleep 1
+    echo "== 🟡 AHORRO NORMAL MEJORADO ACTIVADO 🟡 =="
 
 # -- PERFIL 3: RENDIMIENTO MAXIMO
 elif [ "$opcion" -eq 3 ]; then
