@@ -100,15 +100,32 @@ if [ "$opcion" -eq 1 ]; then
 
     echo "Configurando pantalla... "
     sleep 1
-    su -c  wm size 560x1000
-    su -c  wm density 170
-    echo "Screen: 560x1000, 170dpi"
+    su -c  wm size 540x1140
+    su -c  wm density 210
 
     echo "Desactivando animaciones..."
     sleep 1
     su -c "settings put global window_animation_scale 0"
     su -c "settings put global transition_animation_scale 0"
     su -c "settings put global animator_duration_scale 0"
+    sleep 1
+    echo "Configurando ajustes del scheduler para eficiencia..."
+    su -c "sysctl -w kernel.sched_latency_ns=12000000"
+    su -c "sysctl -w kernel.sched_min_granularity_ns=2500000"
+    su -c "sysctl -w kernel.sched_wakeup_granularity_ns=3500000"
+    echo "Latencia: 12ms, Granularidad mínima: 2.5ms, Wakeup: 3.5ms configurados."
+    sleep 1
+    echo "Configurando cpusets para eficiencia..."
+    su -c "echo 0-3 > /dev/cpuset/top-app/cpus"
+    su -c "echo 0 > /dev/cpuset/background/cpus"
+    su -c "echo 0-1 > /dev/cpuset/system-background/cpus"
+    su -c "echo 0 > /dev/cpuset/restricted/cpus"
+    su -c "echo 0-2 > /dev/cpuset/foreground/cpus"
+    echo "Cpusets configurados para eficiencia."
+    sleep 1
+    echo "Configurando estadísticas de I/O del almacenamiento..."
+    su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
+    echo "Estadísticas de I/O desactivadas."
     sleep 1
     echo "== 🔴 AHORRO EXTREMO ACTIVADO 🔴 =="
 
