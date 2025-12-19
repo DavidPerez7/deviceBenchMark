@@ -101,21 +101,28 @@ if [ "$opcion" -eq 1 ]; then
     done
 
     echo "Configurando GPU..."
-    sleep 1
-        su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
-        # Setear max_freq si existe
-        if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"; then
-            su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+    sleep 2
+    su -c "echo powersave > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
+    sleep 2
+    # Setear max_freq si existe
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"; then
+        su -c "echo 400000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+        sleep 2
+    else
+        echo "Archivo max_freq no encontrado."
+    fi
+    # Setear min_freq si existe
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"; then
+        min_gpu_freq=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/cpuinfo_min_freq" 2>/dev/null)
+        if [ -z "$min_gpu_freq" ]; then
+            min_gpu_freq=257000000
         fi
-        # Setear min_freq si existe
-        if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"; then
-            min_gpu_freq=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/cpuinfo_min_freq" 2>/dev/null)
-            if [ -z "$min_gpu_freq" ]; then
-                min_gpu_freq=257000000
-            fi
-            su -c "echo $min_gpu_freq > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
-        fi
-        echo "GPU: powersave, 400MHz, online"
+        su -c "echo $min_gpu_freq > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
+        sleep 2
+    else
+        echo "Archivo min_freq no encontrado."
+    fi
+    echo "GPU: powersave, 400MHz, configurada con pausas."
 
     echo "Configurando pantalla... "
     sleep 1
