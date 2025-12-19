@@ -109,7 +109,7 @@ if [ "$opcion" -eq 1 ]; then
     echo "Configurando pantalla... "
     sleep 1
     su -c  wm size 540x1140
-    su -c  wm density 210
+    su -c  wm density 200
 
     echo "Desactivando animaciones..."
     sleep 1
