@@ -220,9 +220,9 @@ elif [ "$opcion" -eq 2 ]; then
 
     echo "= PANTALLA Y ANIMACIONES ="
     sleep 1
-    su -c "wm size 720x1520"
+    su -c "wm size 540x1140"
     sleep 1
-    su -c "wm density 280"
+    su -c "wm density 195"
     sleep 1
     su -c "settings put global window_animation_scale 0.3"
     sleep 1
