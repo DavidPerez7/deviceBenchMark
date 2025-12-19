@@ -78,17 +78,25 @@ if [ "$opcion" -eq 1 ]; then
     echo "Configurando cluster 1..."
     sleep 1
     for cpu in 0; do
-    su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-    su -c "echo 1363000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-    su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        su -c "echo 1363000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        # Restaurar min_freq real
+        min_freq=$(su -c "cat /sys/devices/system/cpu/cpu$cpu/cpufreq/cpuinfo_min_freq")
+        su -c "echo $min_freq > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+
         echo "CPU$cpu: conservative, 1363MHz, online"
     done
     echo "Configurando cluster 2..."
     sleep 1
     for cpu in 4 5 6; do
-    su -c "echo conservative > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-    su -c "echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-    su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        su -c "echo powersave > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        su -c "echo 1094000 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        # Restaurar min_freq real
+        min_freq=$(su -c "cat /sys/devices/system/cpu/cpu$cpu/cpufreq/cpuinfo_min_freq")
+        su -c "echo $min_freq > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+
         echo "CPU$cpu: powersave, 1094MHz, online"
     done
 
