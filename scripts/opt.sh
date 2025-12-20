@@ -60,8 +60,10 @@ echo "1. 🔴 AHORRO EXTREMO (4 núcleos - GPU a 400MHz - resolución 560x1000, 
 echo "2. 🟡 AHORRO NORMAL (6 núcleos activos a 1536 y 1401 MHz)"
 echo "3. 🟢 RENDIMIENTO MÁXIMO (8 núcleos activos a 1804MHz)"
 echo "4. 🔄 VALORES DE FÁBRICA (schedutil, resolución y animaciones predeterminadas)"
+echo "5. ⚪ JUEGO (rendimiento equilibrado y eficiencia para juegos)"
+echo "6. ⚫ PANTALLA OLED (simular contraste y color tipo OLED)"
 echo ""
-echo "Ingresa el número de opción (1-4):"
+echo "Ingresa el número de opción (1-6):"
 read opcion
 
 
@@ -325,6 +327,56 @@ elif [ "$opcion" -eq 3 ]; then
 elif [ "$opcion" -eq 4 ]; then
     echo "Restaurando valores de fábrica..."
     sleep 1
+    # Restaurar parámetros de input boost si existen
+    if su -c "test -f /data/local/tmp/ro_prev_input_boost_ms"; then
+        prev_ms=$(su -c "cat /data/local/tmp/ro_prev_input_boost_ms" 2>/dev/null)
+        su -c "echo $prev_ms > /sys/module/cpu_boost/parameters/input_boost_ms" 2>/dev/null || true
+        su -c "rm -f /data/local/tmp/ro_prev_input_boost_ms" 2>/dev/null || true
+    fi
+    if su -c "test -f /data/local/tmp/ro_prev_input_boost_freq"; then
+        prev_freq=$(su -c "cat /data/local/tmp/ro_prev_input_boost_freq" 2>/dev/null)
+        su -c "echo \"$prev_freq\" > /sys/module/cpu_boost/parameters/input_boost_freq" 2>/dev/null || true
+        su -c "rm -f /data/local/tmp/ro_prev_input_boost_freq" 2>/dev/null || true
+    fi
+    # Restaurar protecciones térmicas si fueron modificadas
+    if su -c "test -f /data/local/tmp/ro_prev_thermal_pwrlevel"; then
+        prev_tp=$(su -c "cat /data/local/tmp/ro_prev_thermal_pwrlevel" 2>/dev/null)
+        su -c "echo $prev_tp > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 2>/dev/null || true
+        su -c "rm -f /data/local/tmp/ro_prev_thermal_pwrlevel" 2>/dev/null || true
+    fi
+    # Intentar reiniciar demonios termales si existen
+    su -c "start thermal-engine" 2>/dev/null || true
+    su -c "start thermald" 2>/dev/null || true
+
+    # Restaurar ajustes de pantalla guardados por el perfil PANTALLA OLED
+    for prev in /data/local/tmp/ro_prev_*; do
+        [ -f "$prev" ] || continue
+        name=$(basename "$prev")
+        # Ignorar algunos prev ya manejados
+        case "$name" in
+            ro_prev_input_boost_ms|ro_prev_input_boost_freq|ro_prev_thermal_pwrlevel)
+                continue
+                ;;
+        esac
+        target=${name#ro_prev_}
+        # intentar encontrar el fichero sysfs correspondiente
+        target_path=$(su -c "for p in /sys/class/graphics/*/$target /sys/devices/**/$target; do [ -e \"\$p\" ] && echo \"\$p\" && break; done" 2>/dev/null)
+        if [ -n "$target_path" ]; then
+            val=$(su -c "cat $prev" 2>/dev/null)
+            su -c "echo \"$val\" > $target_path" 2>/dev/null || true
+            su -c "rm -f $prev" 2>/dev/null || true
+            sleep 1
+        else
+            # Restaurar brillo si corresponde
+            if [ "$name" = "ro_prev_screen_brightness" ]; then
+                val=$(su -c "cat $prev" 2>/dev/null)
+                su -c "settings put system screen_brightness $val" 2>/dev/null || true
+                su -c "rm -f $prev" 2>/dev/null || true
+                sleep 1
+            fi
+        fi
+    done
+
     for cpu in 0 1 2 3 4 5 6 7; do
         su -c "echo schedutil > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
         su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
@@ -344,6 +396,235 @@ elif [ "$opcion" -eq 4 ]; then
     su -c "settings put global animator_duration_scale 1"
 
     echo "== 🔄 VALORES DE FÁBRICA RESTAURADOS 🔄 =="
+
+# -- PERFIL 5: JUEGO (RENDIMIENTO EQUILIBRADO + EFICIENCIA)
+elif [ "$opcion" -eq 5 ]; then
+    echo "Activando modo JUEGO: rendimiento equilibrado y eficiencia"
+    sleep 1
+
+    # Mantener la mayoría de núcleos online (0-6) para buena respuesta, ahorrar con CPU7 apagada
+    for cpu in 0 1 2 3 4 5 6; do
+        su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
+        echo "CPU$cpu: online"
+        sleep 1
+    done
+    su -c "echo 0 > /sys/devices/system/cpu/cpu7/online" 2>/dev/null || true
+    sleep 1
+
+    # Cluster 1 (CPU0): elegir max = frecuencia más alta, min = ~60% del max (primer freq >= thresh)
+    avail1=$(su -c "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies" 2>/dev/null)
+    if [ -n "$avail1" ]; then
+        sorted1=$(echo "$avail1" | tr ' ' '\n' | sort -n)
+        max1=$(echo "$sorted1" | tail -n1)
+        thresh1=$((max1 * 60 / 100))
+        min1=$(echo "$sorted1" | awk -v t=$thresh1 '$1>=t {print $1; exit}')
+        if [ -z "$min1" ]; then
+            min1=$(echo "$sorted1" | head -n1)
+        fi
+    else
+        # Valores seguros por defecto
+        max1=1804000
+        min1=1080000
+    fi
+    for cpu in 0 1 2 3; do
+        su -c "echo schedutil > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        sleep 1
+        su -c "echo $max1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        sleep 1
+        su -c "echo $min1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+        sleep 1
+        echo "CPU$cpu: schedutil, $(($max1 / 1000))MHz max, $(($min1 / 1000))MHz min"
+    done
+
+    # Cluster 2 (CPU4): priorizar estabilidad para performance, max = 2ª más alta, min = ~60% del max
+    avail2=$(su -c "cat /sys/devices/system/cpu/cpu4/cpufreq/scaling_available_frequencies" 2>/dev/null)
+    if [ -n "$avail2" ]; then
+        sorted2=$(echo "$avail2" | tr ' ' '\n' | sort -n)
+        max2=$(echo "$sorted2" | tail -n1)
+        second2=$(echo "$sorted2" | tail -n2 | head -n1)
+        thresh2=$((max2 * 60 / 100))
+        min2=$(echo "$sorted2" | awk -v t=$thresh2 '$1>=t {print $1; exit}')
+        if [ -z "$min2" ]; then
+            min2=$(echo "$sorted2" | head -n1)
+        fi
+        # usar second highest como max para ahorro moderado
+        target_max2=${second2:-$max2}
+    else
+        target_max2=1500000
+        min2=900000
+    fi
+    for cpu in 4 5 6; do
+        su -c "echo performance > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
+        sleep 1
+        su -c "echo $target_max2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
+        sleep 1
+        su -c "echo $min2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
+        sleep 1
+        echo "CPU$cpu: performance, $(($target_max2 / 1000))MHz max, $(($min2 / 1000))MHz min"
+    done
+
+    # Ajuste específico de respuesta táctil: usar parámetros de cpu_boost si están disponibles
+    touch_boost_ms=400  # duración del boost en ms (ajustable)
+    if su -c "test -e /sys/module/cpu_boost/parameters/input_boost_ms"; then
+        prev_ms=$(su -c "cat /sys/module/cpu_boost/parameters/input_boost_ms" 2>/dev/null)
+        [ -n "$prev_ms" ] && su -c "echo $prev_ms > /data/local/tmp/ro_prev_input_boost_ms" 2>/dev/null || true
+        su -c "echo $touch_boost_ms > /sys/module/cpu_boost/parameters/input_boost_ms" 2>/dev/null || true
+        sleep 1
+    fi
+    if su -c "test -e /sys/module/cpu_boost/parameters/input_boost_freq"; then
+        prev_freq=$(su -c "cat /sys/module/cpu_boost/parameters/input_boost_freq" 2>/dev/null)
+        [ -n "$prev_freq" ] && su -c "echo \"$prev_freq\" > /data/local/tmp/ro_prev_input_boost_freq" 2>/dev/null || true
+        # Formato habitual: "0:<freq0> 4:<freq4>"; usar max1 y target_max2 si existen
+        new_freq="0:${max1:-$max1} 4:${target_max2:-$target_max2}"
+        su -c "echo $new_freq > /sys/module/cpu_boost/parameters/input_boost_freq" 2>/dev/null || true
+        sleep 1
+    fi
+
+    # GPU: preferencia por performance controlado (max ~90% del disponible) y min ~50%
+    sleep 1
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"; then
+        g_avail=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")
+        g_sorted=$(echo "$g_avail" | tr ' ' '\n' | sort -n)
+        g_max=$(echo "$g_sorted" | tail -n1)
+        g_thresh_top=$((g_max * 90 / 100))
+        g_target=$(echo "$g_sorted" | awk -v t=$g_thresh_top '$1>=t {print $1; exit}')
+        if [ -z "$g_target" ]; then
+            g_target=$g_max
+        fi
+        g_thresh_min=$((g_max * 50 / 100))
+        g_min=$(echo "$g_sorted" | awk -v t=$g_thresh_min '$1>=t {print $1; exit}')
+        if [ -z "$g_min" ]; then
+            g_min=$(echo "$g_sorted" | head -n1)
+        fi
+        su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
+        sleep 1
+        su -c "echo $g_target > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+        sleep 1
+        su -c "echo $g_min > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
+        sleep 1
+        echo "GPU: performance, $(($g_target / 1000000))MHz target, $(($g_min / 1000000))MHz min"
+    else
+        # Fallback seguro
+        su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
+        sleep 1
+        su -c "echo 650000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq" 2>/dev/null || true
+        sleep 1
+        echo "GPU: performance, objetivo por defecto 650MHz"
+    fi
+
+    # Pantalla y animaciones para juego: mantener buena apariencia pero ahorrar
+    sleep 1
+    su -c "wm size 640x1520"
+    sleep 1
+    su -c "wm density 240"
+    sleep 1
+    su -c "settings put global window_animation_scale 0.5"
+    sleep 1
+    su -c "settings put global transition_animation_scale 0.5"
+    sleep 1
+    su -c "settings put global animator_duration_scale 0.5"
+    sleep 1
+
+    # Scheduler: latencia moderada para responsividad
+    su -c "sysctl -w kernel.sched_latency_ns=9000000"
+    sleep 1
+    su -c "sysctl -w kernel.sched_min_granularity_ns=1600000"
+    sleep 1
+    su -c "sysctl -w kernel.sched_wakeup_granularity_ns=2000000"
+    echo "Scheduler ajustado para juego."
+    sleep 1
+
+    # Cpusets: dar prioridad a top-app
+    su -c "echo 0-7 > /dev/cpuset/top-app/cpus"
+    sleep 1
+    su -c "echo 0-1 > /dev/cpuset/background/cpus"
+    sleep 1
+    su -c "echo 0-2 > /dev/cpuset/system-background/cpus"
+    sleep 1
+    su -c "echo 0-1 > /dev/cpuset/restricted/cpus"
+    sleep 1
+    su -c "echo 0-5 > /dev/cpuset/foreground/cpus"
+    echo "Cpusets configurados para modo juego."
+    sleep 1
+
+    # Desactivar protecciones térmicas para mejorar rendimiento en juego (guardar estado previo)
+    if su -c "test -e /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"; then
+        prev_tp=$(su -c "cat /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 2>/dev/null)
+        if [ -n "$prev_tp" ]; then
+            su -c "echo $prev_tp > /data/local/tmp/ro_prev_thermal_pwrlevel" 2>/dev/null || true
+        fi
+        sleep 1
+        su -c "stop thermal-engine" 2>/dev/null || true
+        sleep 1
+        su -c "stop thermald" 2>/dev/null || true
+        sleep 1
+        su -c "echo 0 > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 2>/dev/null || true
+        echo "Protecciones térmicas desactivadas para modo juego."
+    fi
+    echo "== ⚪ PERFIL 5 (JUEGO) ACTIVADO ⚪ =="
+
+# -- PERFIL 6: PANTALLA OLED (simular contraste y color tipo OLED)
+elif [ "$opcion" -eq 6 ]; then
+    echo "Activando modo PANTALLA OLED: ajustar color, contraste y saturación"
+    sleep 1
+
+    # Guardar brillo actual (system setting) y limitar si es muy alto
+    prev_brightness=$(su -c "settings get system screen_brightness" 2>/dev/null)
+    if [ -n "$prev_brightness" ]; then
+        su -c "echo $prev_brightness > /data/local/tmp/ro_prev_screen_brightness" 2>/dev/null || true
+        if [ "$prev_brightness" -gt 200 ]; then
+            su -c "settings put system screen_brightness 200" 2>/dev/null || true
+        fi
+    fi
+    sleep 1
+
+    # Ajustes conservadores: aumentar saturación (x1.25) y contraste (x1.2) cuando existan
+    for path in $(su -c "sh -c 'for f in /sys/class/graphics/*/saturation /sys/devices/**/saturation /sys/class/graphics/*/contrast /sys/devices/**/contrast 2>/dev/null; do [ -e \"$f\" ] && echo \"$f\"; done' 2>/dev/null); do
+        curr=$(su -c "cat $path" 2>/dev/null)
+        if echo "$curr" | grep -qE '^[0-9]+$'; then
+            su -c "echo $curr > /data/local/tmp/ro_prev_$(basename $path)" 2>/dev/null || true
+            if echo "$path" | grep -qi saturation; then
+                new=$((curr * 125 / 100))
+            else
+                new=$((curr * 120 / 100))
+            fi
+            su -c "echo $new > $path" 2>/dev/null || true
+            echo "Ajustado $(basename $path): $curr -> $new"
+            sleep 1
+        fi
+    done
+
+    # Ajustar gamma por componente si existen gamma_r/gamma_g/gamma_b
+    for comp in r g b; do
+        for f in $(su -c "sh -c 'for p in /sys/class/graphics/*/gamma_${comp} /sys/devices/**/gamma_${comp} 2>/dev/null; do [ -e \"$p\" ] && echo \"$p\"; done' 2>/dev/null); do
+            curr=$(su -c "cat $f" 2>/dev/null)
+            if [ -n "$curr" ]; then
+                su -c "echo \"$curr\" > /data/local/tmp/ro_prev_$(basename $f)" 2>/dev/null || true
+                new=$(echo "$curr" | awk '{for(i=1;i<=NF;i++){printf "%d", $i*110/100; if(i<NF) printf " ";}}')
+                su -c "echo \"$new\" > $f" 2>/dev/null || true
+                echo "Ajustado $(basename $f)"
+                sleep 1
+            fi
+        done
+    done
+
+    # Intentar ajustar color balance / color matrix si existen (calentamiento ligero: subir rojo 5%, bajar azul 5%)
+    for f in $(su -c "sh -c 'for p in /sys/class/graphics/*/color* /sys/devices/**/color* 2>/dev/null; do [ -e \"$p\" ] && echo \"$p\"; done' 2>/dev/null); do
+        curr=$(su -c "cat $f" 2>/dev/null)
+        if [ -n "$curr" ]; then
+            su -c "echo \"$curr\" > /data/local/tmp/ro_prev_$(basename $f)" 2>/dev/null || true
+            new=$(echo "$curr" | awk '{if(NF==3){r=$1*105/100; g=$2; b=$3*95/100; printf "%d %d %d", r,g,b} else {printf "%s", $0}}')
+            su -c "echo \"$new\" > $f" 2>/dev/null || true
+            echo "Ajustado $(basename $f)"
+            sleep 1
+        fi
+    done
+
+    echo "Modo PANTALLA OLED aplicado (ajustes guardados en /data/local/tmp/ro_prev_* si corresponden)."
+
+    # Nota: los ajustes serán restaurados al elegir Perfil 4 (Valores de fábrica)
+
+    echo "== ⚫ PANTALLA OLED ACTIVADA ⚫ =="
 
 else
     echo "Opción no válida. Saliendo."
