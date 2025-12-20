@@ -348,6 +348,9 @@ elif [ "$opcion" -eq 4 ]; then
     su -c "start thermal-engine" 2>/dev/null || true
     su -c "start thermald" 2>/dev/null || true
 
+    # Restaurar estadísticas de I/O si fueron desactivadas
+    su -c "echo 1 > /sys/block/mmcblk0/queue/iostats" 2>/dev/null || true
+
     # Restaurar ajustes de pantalla guardados por el perfil PANTALLA OLED
     for prev in /data/local/tmp/ro_prev_*; do
         [ -f "$prev" ] || continue
@@ -511,9 +514,9 @@ elif [ "$opcion" -eq 5 ]; then
 
     # Pantalla y animaciones para juego: mantener buena apariencia pero ahorrar
     sleep 0.8
-    su -c "wm size 480x960"
+    su -c "wm size 550x1135"
     sleep 0.8
-    su -c "wm density 500"
+    su -c "wm density 161"
     sleep 0.8
     su -c "settings put global window_animation_scale 0.5"
     sleep 0.8
@@ -542,6 +545,11 @@ elif [ "$opcion" -eq 5 ]; then
     sleep 0.8
     su -c "echo 0-5 > /dev/cpuset/foreground/cpus"
     echo "Cpusets configurados para modo juego."
+    sleep 0.8
+
+    # Desactivar estadísticas de I/O del almacenamiento para mejor rendimiento
+    su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
+    echo "Estadísticas de I/O desactivadas."
     sleep 0.8
 
     # Desactivar protecciones térmicas para mejorar rendimiento en juego (guardar estado previo)
