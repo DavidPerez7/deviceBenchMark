@@ -403,16 +403,16 @@ elif [ "$opcion" -eq 4 ]; then
 # -- PERFIL 5: JUEGO (RENDIMIENTO EQUILIBRADO + EFICIENCIA)
 elif [ "$opcion" -eq 5 ]; then
     echo "Activando modo JUEGO: rendimiento equilibrado y eficiencia"
-    sleep 0.8
+    sleep 0.74
 
     # Mantener la mayoría de núcleos online (0-6) para buena respuesta, ahorrar con CPU7 apagada
     for cpu in 0 1 2 3 4 5 6; do
         su -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online"
         echo "CPU$cpu: online"
-        sleep 0.8
+        sleep 0.74
     done
     su -c "echo 0 > /sys/devices/system/cpu/cpu7/online" 2>/dev/null || true
-    sleep 0.8
+    sleep 0.74
 
     # Cluster 1 (CPU0): elegir max = frecuencia más alta, min = ~60% del max (primer freq >= thresh)
     avail1=$(su -c "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies" 2>/dev/null)
@@ -431,11 +431,11 @@ elif [ "$opcion" -eq 5 ]; then
     fi
     for cpu in 0 1 2 3; do
         su -c "echo schedutil > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $max1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $min1 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
-        sleep 0.8
+        sleep 0.74
         echo "CPU$cpu: schedutil, $(($max1 / 1000))MHz max, $(($min1 / 1000))MHz min"
     done
 
@@ -458,11 +458,11 @@ elif [ "$opcion" -eq 5 ]; then
     fi
     for cpu in 4 5 6; do
         su -c "echo performance > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_governor"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $target_max2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_max_freq"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $min2 > /sys/devices/system/cpu/cpu$cpu/cpufreq/scaling_min_freq"
-        sleep 0.8
+        sleep 0.74
         echo "CPU$cpu: performance, $(($target_max2 / 1000))MHz max, $(($min2 / 1000))MHz min"
     done
 
@@ -472,7 +472,7 @@ elif [ "$opcion" -eq 5 ]; then
         prev_ms=$(su -c "cat /sys/module/cpu_boost/parameters/input_boost_ms" 2>/dev/null)
         [ -n "$prev_ms" ] && su -c "echo $prev_ms > /data/local/tmp/ro_prev_input_boost_ms" 2>/dev/null || true
         su -c "echo $touch_boost_ms > /sys/module/cpu_boost/parameters/input_boost_ms" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
     fi
     if su -c "test -e /sys/module/cpu_boost/parameters/input_boost_freq"; then
         prev_freq=$(su -c "cat /sys/module/cpu_boost/parameters/input_boost_freq" 2>/dev/null)
@@ -480,11 +480,11 @@ elif [ "$opcion" -eq 5 ]; then
         # Formato habitual: "0:<freq0> 4:<freq4>"; usar max1 y target_max2 si existen
         new_freq="0:${max1:-$max1} 4:${target_max2:-$target_max2}"
         su -c "echo $new_freq > /sys/module/cpu_boost/parameters/input_boost_freq" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
     fi
 
     # GPU: máxima potencia para juegos (max al 100%, min al 70% para estabilidad)
-    sleep 0.8
+    sleep 0.74
     if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"; then
         g_avail=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")
         g_sorted=$(echo "$g_avail" | tr ' ' '\n' | sort -n)
@@ -495,62 +495,62 @@ elif [ "$opcion" -eq 5 ]; then
             g_min=$(echo "$g_sorted" | head -n1)
         fi
         su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $g_max > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
-        sleep 0.8
+        sleep 0.74
         su -c "echo $g_min > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
-        sleep 0.8
+        sleep 0.74
         echo "GPU: performance, $((g_max / 1000000))MHz max, $((g_min / 1000000))MHz min (máxima potencia)"
     else
         # Fallback agresivo
         su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
-        sleep 0.8
+        sleep 0.74
         su -c "echo 725000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
         su -c "echo 500000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
         echo "GPU: performance, 725MHz max (fallback agresivo)"
     fi
 
     # Pantalla y animaciones para juego: mantener buena apariencia pero ahorrar
-    sleep 0.8
+    sleep 0.74
     su -c "wm size 550x1135"
-    sleep 0.8
-    su -c "wm density 161"
-    sleep 0.8
+    sleep 0.74
+    su -c "wm density 169"
+    sleep 0.74
     su -c "settings put global window_animation_scale 0.5"
-    sleep 0.8
+    sleep 0.74
     su -c "settings put global transition_animation_scale 0.5"
-    sleep 0.8
+    sleep 0.74
     su -c "settings put global animator_duration_scale 0.5"
-    sleep 0.8
+    sleep 0.74
 
     # Scheduler: latencia moderada para responsividad
     su -c "sysctl -w kernel.sched_latency_ns=9000000"
-    sleep 0.8
+    sleep 0.74
     su -c "sysctl -w kernel.sched_min_granularity_ns=1600000"
-    sleep 0.8
+    sleep 0.74
     su -c "sysctl -w kernel.sched_wakeup_granularity_ns=2000000"
     echo "Scheduler ajustado para juego."
-    sleep 0.8
+    sleep 0.74
 
     # Cpusets: dar prioridad a top-app
     su -c "echo 0-7 > /dev/cpuset/top-app/cpus"
-    sleep 0.8
+    sleep 0.74
     su -c "echo 0-1 > /dev/cpuset/background/cpus"
-    sleep 0.8
+    sleep 0.74
     su -c "echo 0-2 > /dev/cpuset/system-background/cpus"
-    sleep 0.8
+    sleep 0.74
     su -c "echo 0-1 > /dev/cpuset/restricted/cpus"
-    sleep 0.8
+    sleep 0.74
     su -c "echo 0-5 > /dev/cpuset/foreground/cpus"
     echo "Cpusets configurados para modo juego."
-    sleep 0.8
+    sleep 0.74
 
     # Desactivar estadísticas de I/O del almacenamiento para mejor rendimiento
     su -c "echo 0 > /sys/block/mmcblk0/queue/iostats"
     echo "Estadísticas de I/O desactivadas."
-    sleep 0.8
+    sleep 0.74
 
     # Desactivar protecciones térmicas para mejorar rendimiento en juego (guardar estado previo)
     if su -c "test -e /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel"; then
@@ -558,11 +558,11 @@ elif [ "$opcion" -eq 5 ]; then
         if [ -n "$prev_tp" ]; then
             su -c "echo $prev_tp > /data/local/tmp/ro_prev_thermal_pwrlevel" 2>/dev/null || true
         fi
-        sleep 0.8
+        sleep 0.74
         su -c "stop thermal-engine" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
         su -c "stop thermald" 2>/dev/null || true
-        sleep 0.8
+        sleep 0.74
         su -c "echo 0 > /sys/class/kgsl/kgsl-3d0/thermal_pwrlevel" 2>/dev/null || true
         echo "Protecciones térmicas desactivadas para modo juego."
     fi
