@@ -480,43 +480,40 @@ elif [ "$opcion" -eq 5 ]; then
         sleep 1
     fi
 
-    # GPU: preferencia por performance controlado (max ~90% del disponible) y min ~50%
+    # GPU: máxima potencia para juegos (max al 100%, min al 70% para estabilidad)
     sleep 1
     if su -c "test -e /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies"; then
         g_avail=$(su -c "cat /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies")
         g_sorted=$(echo "$g_avail" | tr ' ' '\n' | sort -n)
         g_max=$(echo "$g_sorted" | tail -n1)
-        g_thresh_top=$((g_max * 90 / 100))
-        g_target=$(echo "$g_sorted" | awk -v t=$g_thresh_top '$1>=t {print $1; exit}')
-        if [ -z "$g_target" ]; then
-            g_target=$g_max
-        fi
-        g_thresh_min=$((g_max * 50 / 100))
+        g_thresh_min=$((g_max * 70 / 100))
         g_min=$(echo "$g_sorted" | awk -v t=$g_thresh_min '$1>=t {print $1; exit}')
         if [ -z "$g_min" ]; then
             g_min=$(echo "$g_sorted" | head -n1)
         fi
         su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
         sleep 1
-        su -c "echo $g_target > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
+        su -c "echo $g_max > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq"
         sleep 1
         su -c "echo $g_min > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq"
         sleep 1
-        echo "GPU: performance, $(($g_target / 1000000))MHz target, $(($g_min / 1000000))MHz min"
+        echo "GPU: performance, $((g_max / 1000000))MHz max, $((g_min / 1000000))MHz min (máxima potencia)"
     else
-        # Fallback seguro
+        # Fallback agresivo
         su -c "echo performance > /sys/class/kgsl/kgsl-3d0/devfreq/governor"
         sleep 1
-        su -c "echo 650000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq" 2>/dev/null || true
+        su -c "echo 725000000 > /sys/class/kgsl/kgsl-3d0/devfreq/max_freq" 2>/dev/null || true
         sleep 1
-        echo "GPU: performance, objetivo por defecto 650MHz"
+        su -c "echo 500000000 > /sys/class/kgsl/kgsl-3d0/devfreq/min_freq" 2>/dev/null || true
+        sleep 1
+        echo "GPU: performance, 725MHz max (fallback agresivo)"
     fi
 
     # Pantalla y animaciones para juego: mantener buena apariencia pero ahorrar
     sleep 1
-    su -c "wm size 640x1520"
+    su -c "wm size 480x960"
     sleep 1
-    su -c "wm density 240"
+    su -c "wm density 320"
     sleep 1
     su -c "settings put global window_animation_scale 0.5"
     sleep 1
