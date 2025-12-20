@@ -579,7 +579,7 @@ elif [ "$opcion" -eq 6 ]; then
     sleep 1
 
     # Ajustes conservadores: aumentar saturación (x1.25) y contraste (x1.2) cuando existan
-    for path in $(su -c "sh -c 'for f in /sys/class/graphics/*/saturation /sys/devices/**/saturation /sys/class/graphics/*/contrast /sys/devices/**/contrast 2>/dev/null; do [ -e \"$f\" ] && echo \"$f\"; done' 2>/dev/null); do
+    for path in $(su -c 'for f in /sys/class/graphics/*/saturation /sys/devices/**/saturation /sys/class/graphics/*/contrast /sys/devices/**/contrast; do [ -e "$f" ] && echo "$f"; done' 2>/dev/null); do
         curr=$(su -c "cat $path" 2>/dev/null)
         if echo "$curr" | grep -qE '^[0-9]+$'; then
             su -c "echo $curr > /data/local/tmp/ro_prev_$(basename $path)" 2>/dev/null || true
@@ -596,7 +596,7 @@ elif [ "$opcion" -eq 6 ]; then
 
     # Ajustar gamma por componente si existen gamma_r/gamma_g/gamma_b
     for comp in r g b; do
-        for f in $(su -c "sh -c 'for p in /sys/class/graphics/*/gamma_${comp} /sys/devices/**/gamma_${comp} 2>/dev/null; do [ -e \"$p\" ] && echo \"$p\"; done' 2>/dev/null); do
+        for f in $(su -c 'for p in /sys/class/graphics/*/gamma_${comp} /sys/devices/**/gamma_${comp}; do [ -e "$p" ] && echo "$p"; done' 2>/dev/null); do
             curr=$(su -c "cat $f" 2>/dev/null)
             if [ -n "$curr" ]; then
                 su -c "echo \"$curr\" > /data/local/tmp/ro_prev_$(basename $f)" 2>/dev/null || true
@@ -609,7 +609,7 @@ elif [ "$opcion" -eq 6 ]; then
     done
 
     # Intentar ajustar color balance / color matrix si existen (calentamiento ligero: subir rojo 5%, bajar azul 5%)
-    for f in $(su -c "sh -c 'for p in /sys/class/graphics/*/color* /sys/devices/**/color* 2>/dev/null; do [ -e \"$p\" ] && echo \"$p\"; done' 2>/dev/null); do
+    for f in $(su -c 'for p in /sys/class/graphics/*/color* /sys/devices/**/color*; do [ -e "$p" ] && echo "$p"; done' 2>/dev/null); do
         curr=$(su -c "cat $f" 2>/dev/null)
         if [ -n "$curr" ]; then
             su -c "echo \"$curr\" > /data/local/tmp/ro_prev_$(basename $f)" 2>/dev/null || true
