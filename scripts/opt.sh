@@ -513,7 +513,7 @@ elif [ "$opcion" -eq 5 ]; then
     sleep 0.8
     su -c "wm size 480x960"
     sleep 0.8
-    su -c "wm density 400"
+    su -c "wm density 500"
     sleep 0.8
     su -c "settings put global window_animation_scale 0.5"
     sleep 0.8
